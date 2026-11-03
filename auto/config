@@ -9,6 +9,7 @@ lb config noauto \
   --architectures amd64 \
   --archive-areas "main contrib non-free-firmware" \
   --binary-image iso-hybrid \
+  --initsystem systemd \
   --apt-recommends false \
   --security false \
   --firmware-binary true \
