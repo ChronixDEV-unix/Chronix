@@ -28,3 +28,7 @@ The desktop environment is JWM (Joe's Window Manager), not a web-based desktop s
 ## License
 
 License and redistribution details will be selected before distributing build images.
+
+## WARNING
+
+This is VibeCoded by CHATGPT, this is an experiment to see its capabilities. **I DO NOT CONDONE THE USE OF AI AGENTS BY DOING THIS.**
