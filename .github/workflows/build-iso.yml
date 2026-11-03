@@ -69,9 +69,13 @@ jobs:
 
           echo "Prepared BIOS boot files:"
           sudo ls -lh "$DEST"
-          test -s "$DEST/isolinux.bin"
-          test -s "$DEST/vesamenu.c32"
-          test -s "$DEST/ldlinux.c32"
+          sudo bash -c 'for file in isolinux.bin vesamenu.c32 ldlinux.c32; do
+            if [ ! -s "/root/isolinux/$file" ]; then
+              echo "Verification failed: $file is missing or empty" >&2
+              exit 1
+            fi
+          done'
+          echo "ISOLINUX and BIOS module verification passed."
 
       - name: Configure Chronix
         run: |
