@@ -15,3 +15,4 @@ network-manager
 network-manager-gnome
 fonts-dejavu
 isolinux
+syslinux-common
