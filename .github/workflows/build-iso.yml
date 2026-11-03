@@ -52,7 +52,6 @@ jobs:
 
           sudo python3 - "$SCRIPT" <<'PY'
           from pathlib import Path
-          import re
           import sys
 
           path = Path(sys.argv[1])
@@ -62,8 +61,12 @@ jobs:
               print("Chronix syslinux staging patch is already present.")
               raise SystemExit(0)
 
-          pattern = re.compile(r"(?m)^\\s*# Installing depends\\s*\\n\\s*Install_package\\s*$")
-          matches = list(pattern.finditer(source))
+          lines = source.splitlines(keepends=True)
+          matches = [
+              i for i, line in enumerate(lines[:-1])
+              if line.strip() == "# Installing depends"
+              and lines[i + 1].strip() == "Install_package"
+          ]
           if len(matches) != 1:
               raise SystemExit(f"Expected one dependency-install point, found {len(matches)}.")
 
@@ -89,9 +92,9 @@ jobs:
           # Installing depends
           Install_package
           """
-          match = matches[0]
-          source = source[:match.start()] + insert.rstrip() + source[match.end():]
-          path.write_text(source)
+          i = matches[0]
+          lines[i:i + 2] = [insert]
+          path.write_text("".join(lines))
           PY
 
           sudo grep -n -A22 'Chronix: stage BIOS boot files' "$SCRIPT"
