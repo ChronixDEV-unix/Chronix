@@ -50,26 +50,40 @@ jobs:
 
       - name: Prepare ISOLINUX files for live-build
         run: |
-          # Debian installs these files under /usr/share/live/build, while
-          # this live-build stage expects them in /root/isolinux.
-          SOURCE="/usr/share/live/build/bootloaders"
+          # Ubuntu and Debian package the SYSLINUX files in different locations.
+          # Locate the installed files instead of assuming a distro-specific path.
           DEST="/root/isolinux"
           sudo mkdir -p "$DEST"
-          for file in isolinux.bin isolinux.cfg ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32 vesamenu.c32; do
-            case "$file" in
-              isolinux.bin|isolinux.cfg|ldlinux.c32) FROM="$SOURCE/isolinux/$file" ;;
-              *) FROM="$SOURCE/syslinux_common/$file" ;;
-            esac
-            if [ ! -e "$FROM" ]; then
-              echo "Required live-build bootloader file is missing: $FROM" >&2
-              exit 1
+
+          find_boot_file() {
+            name="$1"
+            found="$(find /usr -name "$name" -print -quit 2>/dev/null || true)"
+            if [ -z "$found" ]; then
+              echo "Could not find required boot file: $name" >&2
+              return 1
             fi
-            sudo cp -L "$FROM" "$DEST/$file"
+            printf '%s\n' "$found"
+          }
+
+          for file in isolinux.bin vesamenu.c32; do
+            source_file="$(find_boot_file "$file")"
+            echo "Using $source_file"
+            sudo cp -L "$source_file" "$DEST/$file"
           done
+
+          # Copy supporting modules when they are present. Some distributions
+          # package a different set, so these are optional at this stage.
+          for file in ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
+            source_file="$(find /usr -name "$file" -print -quit 2>/dev/null || true)"
+            if [ -n "$source_file" ]; then
+              echo "Using optional module $source_file"
+              sudo cp -L "$source_file" "$DEST/$file"
+            fi
+          done
+
+          test -s "$DEST/isolinux.bin"
+          test -s "$DEST/vesamenu.c32"
           sudo ls -l "$DEST"
-          for file in isolinux.bin vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
-            test -s "$DEST/$file"
-          done
 
       - name: Build ISO
         run: sudo lb build
