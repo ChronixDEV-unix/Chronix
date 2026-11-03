@@ -62,7 +62,6 @@
   <Key key="A-F4">close</Key>
   <Key key="A-Tab">next</Key>
   <Key key="A-F2">exec:xterm</Key>
-  <Key key="Print">exec:xfce4-screenshooter</Key>
 
   <Desktops width="2" height="2">
     <Background type="solid" color="#123b83"/>
