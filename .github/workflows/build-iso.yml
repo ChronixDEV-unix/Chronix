@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             live-build debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin mtools dosfstools
+            grub-pc-bin grub-efi-amd64-bin isolinux syslinux-common mtools dosfstools
 
       - name: Fix Debian Contents index path in live-build
         run: |
