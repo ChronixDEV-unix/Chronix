@@ -43,35 +43,54 @@ jobs:
             "$SCRIPT"
           grep -n 'Contents-${LB_ARCHITECTURES}' "$SCRIPT"
 
-      - name: Prepare BIOS boot files for live-build
+      - name: Patch live-build boot-file staging
         run: |
-          # lb_binary_syslinux reads these files from the build runner's /root,
-          # not from the target chroot. Keep all modules from the same BIOS package.
-          DEST="/root/isolinux"
-          BIOS_MODULES="/usr/lib/syslinux/modules/bios"
-          ISOLINUX_BIN="/usr/lib/ISOLINUX/isolinux.bin"
+          # Ubuntu's live-build runs the syslinux package post-installation
+          # inside ./chroot. That post-installation expects these files in
+          # ./chroot/root/isolinux BEFORE it installs the syslinux package.
+          SCRIPT="/usr/lib/live/build/lb_binary_syslinux"
 
-          if [ ! -s "$ISOLINUX_BIN" ]; then
-            echo "Missing host ISOLINUX binary: $ISOLINUX_BIN" >&2
-            exit 1
-          fi
+          sudo python3 - "$SCRIPT" <<'PY'
+          from pathlib import Path
+          import sys
 
-          sudo install -d -m 0755 "$DEST"
-          sudo install -m 0644 "$ISOLINUX_BIN" "$DEST/isolinux.bin"
+          path = Path(sys.argv[1])
+          source = path.read_text()
+          marker = "    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.\n"
+          if marker in source:
+              print("Chronix syslinux staging patch is already present.")
+              raise SystemExit(0)
 
-          for file in vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
-            if [ ! -s "$BIOS_MODULES/$file" ]; then
-              echo "Missing BIOS SYSLINUX module: $BIOS_MODULES/$file" >&2
-              exit 1
-            fi
-            sudo install -m 0644 "$BIOS_MODULES/$file" "$DEST/$file"
-          done
+          needle = "    # Installing depends\n    Install_package\n"
+          if source.count(needle) != 1:
+              raise SystemExit("Could not find the unique live-build syslinux dependency-install point.")
 
-          sudo ls -lh "$DEST"
-          for file in isolinux.bin vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
-            sudo test -s "$DEST/$file"
-          done
-          echo "All required BIOS boot files are present."
+          insert = """    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.
+          case "${LB_BUILD_WITH_CHROOT}" in
+              true)
+                  mkdir -p chroot/root/isolinux
+                  for pair in \
+                      "usr/lib/ISOLINUX/isolinux.bin:isolinux.bin" \
+                      "usr/lib/syslinux/modules/bios/vesamenu.c32:vesamenu.c32"
+                  do
+                      source_path="chroot/${pair%%:*}"
+                      target_name="${pair##*:}"
+                      if [ ! -s "${source_path}" ]; then
+                          Echo_error "Missing target-chroot boot asset: ${source_path}"
+                          exit 1
+                      fi
+                      cp -L "${source_path}" "chroot/root/isolinux/${target_name}"
+                  done
+                  ;;
+          esac
+
+          # Installing depends
+          Install_package
+          """
+          path.write_text(source.replace(needle, insert, 1))
+          PY
+
+          sudo grep -n -A22 'Chronix: stage BIOS boot files' "$SCRIPT"
 
       - name: Configure Chronix
         run: |
