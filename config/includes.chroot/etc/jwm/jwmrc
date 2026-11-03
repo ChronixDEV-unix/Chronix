@@ -1,58 +1,88 @@
 <?xml version="1.0"?>
 <JWM>
 
-  <RootMenu onroot="12">
+  <!-- Chronix: JWM with a classic KDE 3-inspired appearance. -->
+  <RootMenu onroot="3">
     <Program label="Terminal">xterm</Program>
     <Program label="File Manager">pcmanfm</Program>
+    <Program label="Web Browser">x-www-browser</Program>
+    <Separator/>
     <Program label="Appearance">lxappearance</Program>
     <Separator/>
     <Restart label="Restart JWM"/>
-    <Exit label="Log out"/>
+    <Exit label="Log Out"/>
   </RootMenu>
 
   <Group>
     <Option>tiled</Option>
   </Group>
 
-  <Tray x="0" y="-1" width="100%" height="28" autohide="false" halign="center" valign="bottom" >
+  <Tray x="0" y="-1" width="100%" height="34" autohide="false"
+        halign="center" valign="bottom" layout="horizontal">
     <TrayButton label="Chronix">root:1</TrayButton>
-    <TaskList/>
+    <Spacer width="4"/>
+    <Pager/>
+    <TaskList maxwidth="300"/>
     <Dock/>
     <Clock format="%H:%M"/>
   </Tray>
 
+  <TrayStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#101820</Foreground>
+    <Background>#c5c9d2</Background>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#174ea6</Background>
+    </Active>
+  </TrayStyle>
+
+  <TrayButtonStyle>
+    <Font>DejaVu Sans-Bold-10</Font>
+    <Foreground>#ffffff</Foreground>
+    <Background>#174ea6</Background>
+  </TrayButtonStyle>
+
+  <TaskListStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#101820</Foreground>
+    <Background>#d4d7df</Background>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#174ea6</Background>
+    </Active>
+  </TaskListStyle>
+
+  <PopupStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#101820</Foreground>
+    <Background>#e4e6ec</Background>
+  </PopupStyle>
+
   <Key key="A-F4">close</Key>
   <Key key="A-Tab">next</Key>
   <Key key="A-F2">exec:xterm</Key>
+  <Key key="Print">exec:xfce4-screenshooter</Key>
 
   <Desktops width="2" height="2">
-    <Background type="solid" color="#20242b"/>
+    <Background type="solid" color="#123b83"/>
   </Desktops>
 
   <WindowStyle>
     <Font>DejaVu Sans-10</Font>
     <Width>4</Width>
-    <Height>22</Height>
+    <Height>24</Height>
+    <Corner>4</Corner>
     <Active>
       <Foreground>#ffffff</Foreground>
-      <Background>#a83232</Background>
+      <Background>#174ea6</Background>
+      <Outline>#092b62</Outline>
     </Active>
     <Inactive>
-      <Foreground>#dddddd</Foreground>
-      <Background>#303640</Background>
+      <Foreground>#20242b</Foreground>
+      <Background>#c5c9d2</Background>
+      <Outline>#777f8d</Outline>
     </Inactive>
   </WindowStyle>
-
-  <TaskListStyle>
-    <Font>DejaVu Sans-10</Font>
-    <Active>
-      <Foreground>#ffffff</Foreground>
-      <Background>#a83232</Background>
-    </Active>
-    <Inactive>
-      <Foreground>#dddddd</Foreground>
-      <Background>#303640</Background>
-    </Inactive>
-  </TaskListStyle>
 
 </JWM>
