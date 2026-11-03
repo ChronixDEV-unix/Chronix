@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<JWM>
+
+  <RootMenu onroot="12">
+    <Program label="Terminal">xterm</Program>
+    <Program label="File Manager">pcmanfm</Program>
+    <Program label="Appearance">lxappearance</Program>
+    <Separator/>
+    <Restart label="Restart JWM"/>
+    <Exit label="Log out"/>
+  </RootMenu>
+
+  <Group>
+    <Option>tiled</Option>
+  </Group>
+
+  <Tray x="0" y="-1" width="100%" height="28" autohide="false" halign="center" valign="bottom" >
+    <TrayButton label="Chronix">root:1</TrayButton>
+    <TaskList/>
+    <Dock/>
+    <Clock format="%H:%M"/>
+  </Tray>
+
+  <Key key="A-F4">close</Key>
+  <Key key="A-Tab">next</Key>
+  <Key key="A-F2">exec:xterm</Key>
+
+  <Desktops width="2" height="2">
+    <Background type="solid" color="#20242b"/>
+  </Desktops>
+
+  <WindowStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Width>4</Width>
+    <Height>22</Height>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#a83232</Background>
+    </Active>
+    <Inactive>
+      <Foreground>#dddddd</Foreground>
+      <Background>#303640</Background>
+    </Inactive>
+  </WindowStyle>
+
+  <TaskListStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#a83232</Background>
+    </Active>
+    <Inactive>
+      <Foreground>#dddddd</Foreground>
+      <Background>#303640</Background>
+    </Inactive>
+  </TaskListStyle>
+
+</JWM>
