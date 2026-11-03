@@ -43,43 +43,10 @@ jobs:
             "$SCRIPT"
           grep -n 'Contents-${LB_ARCHITECTURES}' "$SCRIPT"
 
-      - name: Prepare ISOLINUX files for live-build
-        run: |
-          # Prepare matching BIOS ISOLINUX/SYSLINUX assets before live-build
-          # configuration or image construction begins.
-          DEST="/root/isolinux"
-          BIOS_MODULES="/usr/lib/syslinux/modules/bios"
-          sudo mkdir -p "$DEST"
-
-          ISOLINUX_BIN="$(find /usr/lib -path '*/ISOLINUX/isolinux.bin' -print -quit)"
-          if [ -z "$ISOLINUX_BIN" ]; then
-            echo "ISOLINUX isolinux.bin was not installed." >&2
-            exit 1
-          fi
-          sudo cp -L "$ISOLINUX_BIN" "$DEST/isolinux.bin"
-
-          for file in vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
-            source_file="$BIOS_MODULES/$file"
-            if [ ! -s "$source_file" ]; then
-              echo "Required BIOS SYSLINUX module is missing: $source_file" >&2
-              exit 1
-            fi
-            sudo cp -L "$source_file" "$DEST/$file"
-          done
-
-          echo "Prepared BIOS boot files:"
-          sudo ls -lh "$DEST"
-          sudo bash -c 'for file in isolinux.bin vesamenu.c32 ldlinux.c32; do
-            if [ ! -s "/root/isolinux/$file" ]; then
-              echo "Verification failed: $file is missing or empty" >&2
-              exit 1
-            fi
-          done'
-          echo "ISOLINUX and BIOS module verification passed."
-
       - name: Configure Chronix
         run: |
           chmod +x auto/config
+          chmod +x config/hooks/normal/0100-prepare-isolinux.hook.chroot
           sudo lb config
 
       - name: Build ISO
