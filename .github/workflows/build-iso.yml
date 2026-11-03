@@ -52,18 +52,20 @@ jobs:
 
           sudo python3 - "$SCRIPT" <<'PY'
           from pathlib import Path
+          import re
           import sys
 
           path = Path(sys.argv[1])
           source = path.read_text()
-          marker = "    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.\n"
+          marker = "# Chronix: stage BIOS boot files in the target chroot before syslinux is installed."
           if marker in source:
               print("Chronix syslinux staging patch is already present.")
               raise SystemExit(0)
 
-          needle = "    # Installing depends\n    Install_package\n"
-          if source.count(needle) != 1:
-              raise SystemExit("Could not find the unique live-build syslinux dependency-install point.")
+          pattern = re.compile(r"(?m)^\\s*# Installing depends\\s*\\n\\s*Install_package\\s*$")
+          matches = list(pattern.finditer(source))
+          if len(matches) != 1:
+              raise SystemExit(f"Expected one dependency-install point, found {len(matches)}.")
 
           insert = """    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.
           case "${LB_BUILD_WITH_CHROOT}" in
@@ -87,7 +89,9 @@ jobs:
           # Installing depends
           Install_package
           """
-          path.write_text(source.replace(needle, insert, 1))
+          match = matches[0]
+          source = source[:match.start()] + insert.rstrip() + source[match.end():]
+          path.write_text(source)
           PY
 
           sudo grep -n -A22 'Chronix: stage BIOS boot files' "$SCRIPT"
