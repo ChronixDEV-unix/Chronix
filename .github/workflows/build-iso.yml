@@ -48,6 +48,29 @@ jobs:
           chmod +x auto/config
           sudo lb config
 
+      - name: Prepare ISOLINUX files for live-build
+        run: |
+          # Debian installs these files under /usr/share/live/build, while
+          # this live-build stage expects them in /root/isolinux.
+          SOURCE="/usr/share/live/build/bootloaders"
+          DEST="/root/isolinux"
+          sudo mkdir -p "$DEST"
+          for file in isolinux.bin isolinux.cfg ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32 vesamenu.c32; do
+            case "$file" in
+              isolinux.bin|isolinux.cfg|ldlinux.c32) FROM="$SOURCE/isolinux/$file" ;;
+              *) FROM="$SOURCE/syslinux_common/$file" ;;
+            esac
+            if [ ! -e "$FROM" ]; then
+              echo "Required live-build bootloader file is missing: $FROM" >&2
+              exit 1
+            fi
+            sudo cp -L "$FROM" "$DEST/$file"
+          done
+          sudo ls -l "$DEST"
+          for file in isolinux.bin vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
+            test -s "$DEST/$file"
+          done
+
       - name: Build ISO
         run: sudo lb build
 
