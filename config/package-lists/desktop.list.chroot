@@ -1,5 +1,7 @@
 # Chronix base desktop
 jwm
+lightdm
+lightdm-gtk-greeter
 xserver-xorg
 xinit
 xterm
