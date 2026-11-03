@@ -1,0 +1,60 @@
+name: Build Chronix Live ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**"
+      - ".github/workflows/build-iso.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-iso:
+    name: Build Debian live image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out Chronix
+        uses: actions/checkout@v4
+
+      - name: Install live-build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            live-build debootstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin mtools dosfstools
+
+      - name: Configure Chronix
+        run: |
+          chmod +x config/auto/config
+          sudo lb config
+
+      - name: Build ISO
+        run: sudo lb build
+
+      - name: Verify ISO output
+        id: verify
+        run: |
+          ISO="$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          if [ -z "$ISO" ]; then
+            echo "No ISO was produced." >&2
+            exit 1
+          fi
+          SIZE="$(stat -c '%s' "$ISO")"
+          echo "iso=$ISO" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          ls -lh "$ISO"
+          file "$ISO"
+
+      - name: Upload ISO build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronix-live-amd64
+          path: ${{ steps.verify.outputs.iso }}
+          if-no-files-found: error
+          retention-days: 1
