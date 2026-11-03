@@ -43,11 +43,15 @@ jobs:
             "$SCRIPT"
           grep -n 'Contents-${LB_ARCHITECTURES}' "$SCRIPT"
 
-      - name: Configure Chronix
+      - name: Prepare Chronix build hooks
         run: |
           chmod +x auto/config
-          chmod +x config/hooks/normal/0100-prepare-isolinux.hook.chroot
-          sudo lb config
+          mkdir -p config/hooks
+          cp config/hooks/normal/0100-prepare-isolinux.hook.chroot config/hooks/0100-prepare-isolinux.hook.chroot
+          chmod +x config/hooks/0100-prepare-isolinux.hook.chroot
+
+      - name: Configure Chronix
+        run: sudo lb config
 
       - name: Build ISO
         run: sudo lb build
