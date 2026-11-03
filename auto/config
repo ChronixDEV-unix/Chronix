@@ -10,6 +10,7 @@ lb config noauto \
   --archive-areas "main contrib non-free-firmware" \
   --binary-image iso-hybrid \
   --apt-recommends false \
+  --security false \
   --firmware-binary true \
   --firmware-chroot true \
   --iso-application "Chronix" \
