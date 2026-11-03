@@ -31,7 +31,7 @@ jobs:
 
       - name: Configure Chronix
         run: |
-          chmod +x config/auto/config
+          chmod +x auto/config
           sudo lb config
 
       - name: Build ISO
