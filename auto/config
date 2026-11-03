@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+# Chronix first live-image target: Debian 13 (trixie), amd64.
+# This file belongs at the project root in auto/config.
+lb config noauto \
+  --mode debian \
+  --distribution trixie \
+  --architectures amd64 \
+  --archive-areas "main contrib non-free-firmware" \
+  --binary-image iso-hybrid \
+  --apt-recommends false \
+  --firmware-binary true \
+  --firmware-chroot true \
+  --iso-application "Chronix" \
+  --iso-publisher "Chronix Project" \
+  --iso-volume "CHRONIX_LIVE"
