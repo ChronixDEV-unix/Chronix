@@ -29,6 +29,19 @@ jobs:
             live-build debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin mtools dosfstools
 
+      - name: Fix Debian Contents index path in live-build
+        run: |
+          SCRIPT="/usr/lib/live/build/lb_chroot_linux-image"
+          if ! grep -q 'dists/\${LB_PARENT_DISTRIBUTION}/Contents-' "$SCRIPT"; then
+            echo "Expected live-build Contents URL pattern was not found." >&2
+            exit 1
+          fi
+          sudo sed -i \
+            -e 's|dists/\${LB_PARENT_DISTRIBUTION}/Contents-|dists/\${LB_PARENT_DISTRIBUTION}/main/Contents-|g' \
+            -e 's|dists/\${LB_DISTRIBUTION}/Contents-|dists/\${LB_DISTRIBUTION}/main/Contents-|g' \
+            "$SCRIPT"
+          grep -n 'Contents-\${LB_ARCHITECTURES}' "$SCRIPT"
+
       - name: Configure Chronix
         run: |
           chmod +x auto/config
