@@ -43,47 +43,40 @@ jobs:
             "$SCRIPT"
           grep -n 'Contents-${LB_ARCHITECTURES}' "$SCRIPT"
 
+      - name: Prepare ISOLINUX files for live-build
+        run: |
+          # Prepare matching BIOS ISOLINUX/SYSLINUX assets before live-build
+          # configuration or image construction begins.
+          DEST="/root/isolinux"
+          BIOS_MODULES="/usr/lib/syslinux/modules/bios"
+          sudo mkdir -p "$DEST"
+
+          ISOLINUX_BIN="$(find /usr/lib -path '*/ISOLINUX/isolinux.bin' -print -quit)"
+          if [ -z "$ISOLINUX_BIN" ]; then
+            echo "ISOLINUX isolinux.bin was not installed." >&2
+            exit 1
+          fi
+          sudo cp -L "$ISOLINUX_BIN" "$DEST/isolinux.bin"
+
+          for file in vesamenu.c32 ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
+            source_file="$BIOS_MODULES/$file"
+            if [ ! -s "$source_file" ]; then
+              echo "Required BIOS SYSLINUX module is missing: $source_file" >&2
+              exit 1
+            fi
+            sudo cp -L "$source_file" "$DEST/$file"
+          done
+
+          echo "Prepared BIOS boot files:"
+          sudo ls -lh "$DEST"
+          test -s "$DEST/isolinux.bin"
+          test -s "$DEST/vesamenu.c32"
+          test -s "$DEST/ldlinux.c32"
+
       - name: Configure Chronix
         run: |
           chmod +x auto/config
           sudo lb config
-
-      - name: Prepare ISOLINUX files for live-build
-        run: |
-          # Ubuntu and Debian package the SYSLINUX files in different locations.
-          # Locate the installed files instead of assuming a distro-specific path.
-          DEST="/root/isolinux"
-          sudo mkdir -p "$DEST"
-
-          find_boot_file() {
-            name="$1"
-            found="$(find /usr -name "$name" -print -quit 2>/dev/null || true)"
-            if [ -z "$found" ]; then
-              echo "Could not find required boot file: $name" >&2
-              return 1
-            fi
-            printf '%s\n' "$found"
-          }
-
-          for file in isolinux.bin vesamenu.c32; do
-            source_file="$(find_boot_file "$file")"
-            echo "Using $source_file"
-            sudo cp -L "$source_file" "$DEST/$file"
-          done
-
-          # Copy supporting modules when they are present. Some distributions
-          # package a different set, so these are optional at this stage.
-          for file in ldlinux.c32 libcom32.c32 libgpl.c32 libmenu.c32 libutil.c32; do
-            source_file="$(find /usr -name "$file" -print -quit 2>/dev/null || true)"
-            if [ -n "$source_file" ]; then
-              echo "Using optional module $source_file"
-              sudo cp -L "$source_file" "$DEST/$file"
-            fi
-          done
-
-          test -s "$DEST/isolinux.bin"
-          test -s "$DEST/vesamenu.c32"
-          sudo ls -l "$DEST"
 
       - name: Build ISO
         run: sudo lb build
