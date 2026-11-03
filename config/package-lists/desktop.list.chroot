@@ -1,0 +1,14 @@
+# Chronix base desktop
+jwm
+xserver-xorg
+xinit
+xterm
+pcmanfm
+lxappearance
+feh
+menu
+dbus-x11
+sudo
+network-manager
+network-manager-gnome
+fonts-dejavu
