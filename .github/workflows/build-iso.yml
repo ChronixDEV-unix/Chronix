@@ -45,9 +45,8 @@ jobs:
 
       - name: Patch live-build boot-file staging
         run: |
-          # Syslinux postinst runs inside ./chroot/chroot and expects boot
-          # assets under /root/isolinux. The package files are installed on the
-          # GitHub runner, so copy them from the runner into that target chroot.
+          # Syslinux postinst checks /root/isolinux on the GitHub runner.
+          # Stage the package assets there before Install_package runs.
           SCRIPT="/usr/lib/live/build/lb_binary_syslinux"
 
           sudo python3 - "$SCRIPT" <<'PY'
@@ -56,7 +55,7 @@ jobs:
 
           path = Path(sys.argv[1])
           source = path.read_text()
-          marker = "# Chronix: stage BIOS boot files in the target chroot before syslinux is installed."
+          marker = "# Chronix: syslinux postinst checks /root/isolinux on the runner."
           if marker in source:
               print("Chronix syslinux staging patch is already present.")
               raise SystemExit(0)
@@ -98,7 +97,7 @@ jobs:
           path.write_text("".join(lines))
           PY
 
-          sudo grep -n -A22 'Chronix: stage BIOS boot files' "$SCRIPT"
+          sudo grep -n -A22 'Chronix: syslinux postinst checks /root/isolinux on the runner' "$SCRIPT"
 
       - name: Configure Chronix
         run: |
