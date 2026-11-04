@@ -9,7 +9,6 @@ lb config noauto \
   --architectures amd64 \
   --archive-areas "main contrib non-free-firmware" \
   --binary-image iso-hybrid \
-  --bootloaders grub-pc,grub-efi \
   --initsystem systemd \
   --apt-recommends false \
   --security false \
