@@ -23,6 +23,23 @@ jobs:
             live-build debootstrap squashfs-tools xorriso \
             grub-pc-bin grub-efi-amd64-bin mtools dosfstools
 
+      - name: Stage Syslinux boot assets for live-build
+        run: |
+          mkdir -p /tmp/chronix-syslinux /tmp/chronix-syslinux-extracted
+          cd /tmp/chronix-syslinux
+          apt-get download isolinux syslinux-common
+          for package in ./*.deb; do
+            dpkg-deb -x "$package" /tmp/chronix-syslinux-extracted
+          done
+          ISOLINUX_BIN="$(find /tmp/chronix-syslinux-extracted -type f -name isolinux.bin -print -quit)"
+          VESAMENU="$(find /tmp/chronix-syslinux-extracted -type f -name vesamenu.c32 -print -quit)"
+          test -n "$ISOLINUX_BIN"
+          test -n "$VESAMENU"
+          mkdir -p "$GITHUB_WORKSPACE/config/includes.chroot/root/isolinux"
+          install -m 0644 "$ISOLINUX_BIN" "$GITHUB_WORKSPACE/config/includes.chroot/root/isolinux/isolinux.bin"
+          install -m 0644 "$VESAMENU" "$GITHUB_WORKSPACE/config/includes.chroot/root/isolinux/vesamenu.c32"
+          ls -l "$GITHUB_WORKSPACE/config/includes.chroot/root/isolinux"
+
       - name: Fix Debian Contents index path in live-build
         run: |
           SCRIPT="/usr/lib/live/build/lb_chroot_linux-image"
