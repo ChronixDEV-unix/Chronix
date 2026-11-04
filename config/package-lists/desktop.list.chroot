@@ -1,4 +1,5 @@
 # Chronix base desktop
+ca-certificates
 jwm
 lightdm
 lightdm-gtk-greeter
