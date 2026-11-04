@@ -70,14 +70,13 @@ jobs:
           if len(matches) != 1:
               raise SystemExit(f"Expected one dependency-install point, found {len(matches)}.")
 
-          insert = """    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.
-          # Install_package operates on ./chroot/chroot, while apt installed
-          # these assets on the GitHub runner filesystem.
-          BINARY_CHROOT="chroot/chroot"
-          mkdir -p "${BINARY_CHROOT}/root/isolinux"
-
+          insert = """    # Chronix: syslinux postinst checks /root/isolinux on the runner.
+          # The boot assets are installed on the GitHub runner by apt, so stage
+          # them at that exact absolute path before Install_package runs.
           HOST_ISOLINUX="/usr/lib/ISOLINUX/isolinux.bin"
           HOST_VESAMENU="/usr/lib/syslinux/modules/bios/vesamenu.c32"
+          mkdir -p /root/isolinux
+
           for asset in "$HOST_ISOLINUX" "$HOST_VESAMENU"; do
               if [ ! -s "$asset" ]; then
                   Echo_error "Missing runner boot asset: $asset"
@@ -85,11 +84,11 @@ jobs:
               fi
           done
 
-          cp -L "$HOST_ISOLINUX" "${BINARY_CHROOT}/root/isolinux/isolinux.bin"
-          cp -L "$HOST_VESAMENU" "${BINARY_CHROOT}/root/isolinux/vesamenu.c32"
-          test -s "${BINARY_CHROOT}/root/isolinux/isolinux.bin"
-          test -s "${BINARY_CHROOT}/root/isolinux/vesamenu.c32"
-          ls -l "${BINARY_CHROOT}/root/isolinux"
+          cp -L "$HOST_ISOLINUX" /root/isolinux/isolinux.bin
+          cp -L "$HOST_VESAMENU" /root/isolinux/vesamenu.c32
+          test -s /root/isolinux/isolinux.bin
+          test -s /root/isolinux/vesamenu.c32
+          ls -l /root/isolinux
 
           # Installing depends
           Install_package
