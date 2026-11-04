@@ -45,9 +45,9 @@ jobs:
 
       - name: Patch live-build boot-file staging
         run: |
-          # live-build duplicates the live root filesystem to ./chroot/chroot
-          # for binary-stage package operations. Syslinux postinst runs in that
-          # duplicated root and expects its boot assets under /root/isolinux.
+          # Syslinux postinst runs inside ./chroot/chroot and expects boot
+          # assets under /root/isolinux. The package files are installed on the
+          # GitHub runner, so copy them from the runner into that target chroot.
           SCRIPT="/usr/lib/live/build/lb_binary_syslinux"
 
           sudo python3 - "$SCRIPT" <<'PY'
@@ -71,22 +71,22 @@ jobs:
               raise SystemExit(f"Expected one dependency-install point, found {len(matches)}.")
 
           insert = """    # Chronix: stage BIOS boot files in the target chroot before syslinux is installed.
-          # Stage into the duplicated binary-stage chroot, not the original
-          # live root filesystem. Install_package operates on ./chroot/chroot.
+          # Install_package operates on ./chroot/chroot, while apt installed
+          # these assets on the GitHub runner filesystem.
           BINARY_CHROOT="chroot/chroot"
           mkdir -p "${BINARY_CHROOT}/root/isolinux"
-          for pair in \
-              "usr/lib/ISOLINUX/isolinux.bin:isolinux.bin" \
-              "usr/lib/syslinux/modules/bios/vesamenu.c32:vesamenu.c32"
-          do
-              source_path="${BINARY_CHROOT}/${pair%%:*}"
-              target_name="${pair##*:}"
-              if [ ! -s "${source_path}" ]; then
-                  Echo_error "Missing binary-chroot boot asset: ${source_path}"
+
+          HOST_ISOLINUX="/usr/lib/ISOLINUX/isolinux.bin"
+          HOST_VESAMENU="/usr/lib/syslinux/modules/bios/vesamenu.c32"
+          for asset in "$HOST_ISOLINUX" "$HOST_VESAMENU"; do
+              if [ ! -s "$asset" ]; then
+                  Echo_error "Missing runner boot asset: $asset"
                   exit 1
               fi
-              cp -L "${source_path}" "${BINARY_CHROOT}/root/isolinux/${target_name}"
           done
+
+          cp -L "$HOST_ISOLINUX" "${BINARY_CHROOT}/root/isolinux/isolinux.bin"
+          cp -L "$HOST_VESAMENU" "${BINARY_CHROOT}/root/isolinux/vesamenu.c32"
           test -s "${BINARY_CHROOT}/root/isolinux/isolinux.bin"
           test -s "${BINARY_CHROOT}/root/isolinux/vesamenu.c32"
           ls -l "${BINARY_CHROOT}/root/isolinux"
