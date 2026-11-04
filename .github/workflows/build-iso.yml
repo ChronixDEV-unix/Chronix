@@ -2,13 +2,6 @@ name: Build Chronix Live ISO
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "config/**"
-      - "auto/config"
-      - ".github/workflows/build-iso.yml"
 
 permissions:
   contents: read
