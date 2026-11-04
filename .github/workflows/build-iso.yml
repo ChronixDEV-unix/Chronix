@@ -85,8 +85,18 @@ jobs:
 
           cp -L "$HOST_ISOLINUX" /root/isolinux/isolinux.bin
           cp -L "$HOST_VESAMENU" /root/isolinux/vesamenu.c32
-          test -s /root/isolinux/isolinux.bin
-          test -s /root/isolinux/vesamenu.c32
+
+          # Install_package runs the package maintainer scripts inside the
+          # live-build target root. Make the same files visible at /root there.
+          for target in chroot/root/isolinux chroot/chroot/root/isolinux; do
+              mkdir -p "$target"
+              cp -L "$HOST_ISOLINUX" "$target/isolinux.bin"
+              cp -L "$HOST_VESAMENU" "$target/vesamenu.c32"
+              test -s "$target/isolinux.bin"
+              test -s "$target/vesamenu.c32"
+              echo "Staged Syslinux assets in $target"
+              ls -l "$target"
+          done
           ls -l /root/isolinux
 
           # Installing depends
