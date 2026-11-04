@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             live-build debootstrap squashfs-tools xorriso \
-            grub-pc-bin grub-efi-amd64-bin isolinux syslinux-common mtools dosfstools
+            grub-pc-bin grub-efi-amd64-bin mtools dosfstools
 
       - name: Fix Debian Contents index path in live-build
         run: |
@@ -42,72 +42,6 @@ jobs:
             -e 's|dists/${LB_DISTRIBUTION}/Contents-|dists/${LB_DISTRIBUTION}/main/Contents-|g' \
             "$SCRIPT"
           grep -n 'Contents-${LB_ARCHITECTURES}' "$SCRIPT"
-
-      - name: Patch live-build boot-file staging
-        run: |
-          # Syslinux postinst checks /root/isolinux on the GitHub runner.
-          # Stage the package assets there before Install_package runs.
-          SCRIPT="/usr/lib/live/build/lb_binary_syslinux"
-
-          sudo python3 - "$SCRIPT" <<'PY'
-          from pathlib import Path
-          import sys
-
-          path = Path(sys.argv[1])
-          source = path.read_text()
-          marker = "# Chronix: syslinux postinst checks /root/isolinux on the runner."
-          if marker in source:
-              print("Chronix syslinux staging patch is already present.")
-              raise SystemExit(0)
-
-          lines = source.splitlines(keepends=True)
-          matches = [
-              i for i, line in enumerate(lines[:-1])
-              if line.strip() == "# Installing depends"
-              and lines[i + 1].strip() == "Install_package"
-          ]
-          if len(matches) != 1:
-              raise SystemExit(f"Expected one dependency-install point, found {len(matches)}.")
-
-          insert = """    # Chronix: syslinux postinst checks /root/isolinux on the runner.
-          # The boot assets are installed on the GitHub runner by apt, so stage
-          # them at that exact absolute path before Install_package runs.
-          HOST_ISOLINUX="/usr/lib/ISOLINUX/isolinux.bin"
-          HOST_VESAMENU="/usr/lib/syslinux/modules/bios/vesamenu.c32"
-          mkdir -p /root/isolinux
-
-          for asset in "$HOST_ISOLINUX" "$HOST_VESAMENU"; do
-              if [ ! -s "$asset" ]; then
-                  Echo_error "Missing runner boot asset: $asset"
-                  exit 1
-              fi
-          done
-
-          cp -L "$HOST_ISOLINUX" /root/isolinux/isolinux.bin
-          cp -L "$HOST_VESAMENU" /root/isolinux/vesamenu.c32
-
-          # Install_package runs the package maintainer scripts inside the
-          # live-build target root. Make the same files visible at /root there.
-          for target in chroot/root/isolinux chroot/chroot/root/isolinux; do
-              mkdir -p "$target"
-              cp -L "$HOST_ISOLINUX" "$target/isolinux.bin"
-              cp -L "$HOST_VESAMENU" "$target/vesamenu.c32"
-              test -s "$target/isolinux.bin"
-              test -s "$target/vesamenu.c32"
-              echo "Staged Syslinux assets in $target"
-              ls -l "$target"
-          done
-          ls -l /root/isolinux
-
-          # Installing depends
-          Install_package
-          """
-          i = matches[0]
-          lines[i:i + 2] = [insert]
-          path.write_text("".join(lines))
-          PY
-
-          sudo grep -n -A22 'Chronix: syslinux postinst checks /root/isolinux on the runner' "$SCRIPT"
 
       - name: Configure Chronix
         run: |
