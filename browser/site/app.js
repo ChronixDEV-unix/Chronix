@@ -72,7 +72,7 @@ async function loadDiskImage() {
 
   setMessage("Downloading the built-in Chronix disk image…");
   progressBar.style.width = "18%";
-  const response = await fetch("./vm/chronix-browser-amd64.img.gz", { cache: "no-store" });
+  const response = await fetch("./vm/chronix-browser-amd64.diskdata", { cache: "no-store" });
   if (!response.ok || !response.body) {
     throw new Error("Could not download the built-in VM disk (HTTP " + response.status + ").");
   }
