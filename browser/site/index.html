@@ -53,7 +53,7 @@
           <div class="placeholder-mark">C</div>
           <div class="placeholder-title">CHRONIX</div>
           <div class="placeholder-subtitle">BROWSER EDITION</div>
-          <p>Select the VM disk image, then power on.</p>
+          <p>Power on to load the built-in Chronix disk image.</p>
         </div>
       </div>
 
@@ -67,12 +67,12 @@
       <div class="setup-card">
         <div class="section-label">01 · VIRTUAL DISK</div>
         <h2>Choose your Chronix image</h2>
-        <p class="muted">Download and extract the <code>chronix-browser-vm</code> artifact from GitHub Actions, then select the <code>.img</code> file here.</p>
+        <p class="muted">The Chronix disk image is included with this page and loads automatically. You can optionally choose a local <code>.img</code> file instead.</p>
         <label class="file-picker" for="disk-file">
           <span class="file-icon">▤</span>
           <span class="file-copy">
             <strong id="file-name">Choose disk image…</strong>
-            <small id="file-size">Raw .img virtual hard disk</small>
+            <small id="file-size">Built-in disk loads automatically</small>
           </span>
           <span class="browse-label">Browse</span>
         </label>
@@ -80,12 +80,12 @@
         <div class="section-label memory-label">02 · MEMORY</div>
         <label class="select-label" for="memory-size">Virtual machine RAM</label>
         <select id="memory-size">
-          <option value="512">512 MB · Lightweight</option>
-          <option value="1024" selected>1024 MB · Recommended</option>
+          <option value="512" selected>512 MB · Lightweight</option>
+          <option value="1024">1024 MB · Recommended</option>
           <option value="2048">2048 MB · More headroom</option>
           
         </select>
-        <button id="start-btn" class="button primary start-button" type="button" disabled>Power on Chronix</button>
+        <button id="start-btn" class="button primary start-button" type="button">Power on Chronix</button>
         <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
         <p id="message" class="message" role="status">Waiting for a virtual disk image.</p>
       </div>
