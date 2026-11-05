@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 DISK_IMAGE="build/chronix-browser-amd64.img"
-MOUNT_DIR="$RUNNER_TEMP/chronix-browser-root"
+MOUNT_DIR="${RUNNER_TEMP:-/tmp}/chronix-browser-root"
 DISK_SIZE="1200M"
 SUITE="trixie"
 MIRROR="http://deb.debian.org/debian"
@@ -87,7 +87,7 @@ chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-i
     lightdm lightdm-gtk-greeter \
     jwm xterm pcmanfm feh lxappearance \
     dbus-x11 sudo network-manager network-manager-gnome \
-    fonts-dejavu-core fonts-liberation2 firefox-esr e2fsprogs
+    fonts-dejavu-core fonts-liberation2 e2fsprogs
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
 PASSWORD_HASH="$(openssl passwd -6 -salt "$(openssl rand -hex 8)" chronos)"
