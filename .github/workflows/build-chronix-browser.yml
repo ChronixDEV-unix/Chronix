@@ -36,7 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential clang nasm default-jdk-headless wget python3 \
-            debootstrap e2fsprogs parted dosfstools qemu-system-x86 \
+            debootstrap debian-archive-keyring e2fsprogs parted dosfstools qemu-system-x86 \
             grub-pc-bin grub2-common openssl file
 
       - name: Set up Node.js
