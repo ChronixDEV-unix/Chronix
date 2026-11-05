@@ -48,60 +48,89 @@ function formatBytes(bytes) {
 
 diskInput.addEventListener("change", () => {
   selectedFile = diskInput.files && diskInput.files[0] ? diskInput.files[0] : null;
+  diskBuffer = null;
   if (selectedFile) {
     byId("file-name").textContent = selectedFile.name;
     byId("file-size").textContent = formatBytes(selectedFile.size);
-    setMessage("Disk image selected. Power on when ready.");
-    startButton.disabled = false;
+    setMessage("Local disk image selected. It will be used instead of the built-in disk.");
   } else {
     byId("file-name").textContent = "Choose disk image…";
-    byId("file-size").textContent = "Raw .img virtual hard disk";
-    startButton.disabled = true;
+    byId("file-size").textContent = "Built-in disk loads automatically";
+    setMessage("The built-in Chronix disk will be used.");
   }
+  startButton.disabled = false;
 });
+
+async function loadDiskImage() {
+  if (selectedFile) {
+    setMessage("Reading your local disk image into browser memory…");
+    return await selectedFile.arrayBuffer();
+  }
+  if (diskBuffer) {
+    return diskBuffer;
+  }
+
+  setMessage("Downloading the built-in Chronix disk image…");
+  progressBar.style.width = "18%";
+  const response = await fetch("./vm/chronix-browser-amd64.img.gz", { cache: "no-store" });
+  if (!response.ok || !response.body) {
+    throw new Error("Could not download the built-in VM disk (HTTP " + response.status + ").");
+  }
+  if (typeof DecompressionStream !== "function") {
+    throw new Error("This Chrome version does not support streaming gzip decompression. Choose a local .img file instead.");
+  }
+
+  const total = Number(response.headers.get("content-length") || 0);
+  if (total) {
+    setMessage("Downloading built-in disk image (" + formatBytes(total) + ")…");
+  }
+  progressBar.style.width = "30%";
+  const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
+  const buffer = await new Response(decompressed).arrayBuffer();
+  if (!buffer.byteLength) {
+    throw new Error("The built-in disk image decompressed to an empty file.");
+  }
+  progressBar.style.width = "38%";
+  byId("file-name").textContent = "Built-in Chronix disk";
+  byId("file-size").textContent = formatBytes(buffer.byteLength) + " loaded";
+  return buffer;
+}
 
 async function stopMachine() {
   if (!emulator) return;
-  try { await emulator.stop(); await emulator.destroy(); } catch (error) { console.warn(error); }
+  try {
+    await emulator.stop();
+    await emulator.destroy();
+  } catch (error) {
+    console.warn(error);
+  }
+  emulator = null;
   running = false;
   starting = false;
   stopButton.disabled = true;
   restartButton.disabled = true;
   saveButton.disabled = !diskBuffer;
-  startButton.disabled = !selectedFile;
+  startButton.disabled = false;
   fullscreenButton.disabled = true;
-  setStatus("Machine stopped");
-  setMessage("Machine stopped. Save the disk image, then choose that saved file next time.");
-  emulator = null;
   diskInput.disabled = false;
   memorySelect.disabled = false;
-  selectedFile = null;
-  diskInput.value = "";
-  byId("file-name").textContent = "Choose disk image…";
-  byId("file-size").textContent = "Raw .img virtual hard disk";
-  startButton.disabled = true;
+  setStatus("Machine stopped");
+  setMessage("Machine stopped. Save the disk image before closing to keep changes.");
 }
 
 async function startMachine() {
   if (starting || running || emulator) return;
-  if (!selectedFile) {
-    setMessage("Choose the Chronix .img disk file first.", true);
-    return;
-  }
 
   starting = true;
   startButton.disabled = true;
   diskInput.disabled = true;
   memorySelect.disabled = true;
   progress.hidden = false;
-  progressBar.style.width = "12%";
-  setStatus("Loading virtual disk…", "busy");
-  setMessage("Reading the local disk image into browser memory. Large images may take a little while.");
+  progressBar.style.width = "8%";
+  setStatus("Preparing virtual disk…", "busy");
 
   try {
-    // v86 accepts an ArrayBuffer for a writable in-memory virtual hard disk.
-    diskBuffer = await selectedFile.arrayBuffer();
-    progressBar.style.width = "38%";
+    diskBuffer = await loadDiskImage();
     setStatus("Starting x86-64 PC…", "busy");
 
     emulator = new V86({
@@ -130,6 +159,13 @@ async function startMachine() {
       setTimeout(() => { progress.hidden = true; }, 700);
     });
 
+    emulator.add_listener("download-error", (event) => {
+      const filename = event && event.file_name ? event.file_name : "a VM component";
+      appendSerial("\n[Download error: " + filename + "]\n");
+      setStatus("VM component failed to load");
+      setMessage("Could not load " + filename + ". Check the browser console for details.", true);
+    });
+
     emulator.add_listener("emulator-stopped", () => {
       running = false;
       if (!starting) {
@@ -151,12 +187,15 @@ async function startMachine() {
     setMessage("Loading the emulator and booting the virtual machine…");
   } catch (error) {
     console.error(error);
+    if (emulator) {
+      try { await emulator.destroy(); } catch (cleanupError) { console.warn(cleanupError); }
+    }
     emulator = null;
     diskBuffer = null;
     starting = false;
     diskInput.disabled = false;
     memorySelect.disabled = false;
-    startButton.disabled = !selectedFile;
+    startButton.disabled = false;
     progress.hidden = true;
     setStatus("Could not start");
     setMessage(error && error.message ? error.message : String(error), true);
@@ -165,18 +204,14 @@ async function startMachine() {
 
 startButton.addEventListener("click", startMachine);
 
-stopButton.addEventListener("click", async () => {
-  await stopMachine();
-  diskInput.disabled = false;
-  memorySelect.disabled = false;
-});
+stopButton.addEventListener("click", stopMachine);
 
-restartButton.addEventListener("click", async () => {
+restartButton.addEventListener("click", () => {
   if (!emulator) return;
   setStatus("Restarting…", "busy");
   setMessage("Restarting Chronix.");
   try {
-    await emulator.restart();
+    emulator.restart();
     setStatus("Running", "running");
   } catch (error) {
     setMessage("Restart failed: " + error.message, true);
@@ -225,8 +260,14 @@ saveButton.addEventListener("click", async () => {
       setMessage("Could not save disk image: " + error.message, true);
     }
   } finally {
-    if (wasRunning) {
-      try { emulator.run(); running = true; setStatus("Running", "running"); } catch (error) { console.warn(error); }
+    if (wasRunning && emulator) {
+      try {
+        await emulator.run();
+        running = true;
+        setStatus("Running", "running");
+      } catch (error) {
+        console.warn(error);
+      }
     }
   }
 });
@@ -235,5 +276,11 @@ window.addEventListener("beforeunload", (event) => {
   if (running || starting) {
     event.preventDefault();
     event.returnValue = "";
+  }
+});
+
+window.addEventListener("error", (event) => {
+  if (starting && event.error) {
+    setMessage("Browser-side VM error: " + event.error.message, true);
   }
 });
