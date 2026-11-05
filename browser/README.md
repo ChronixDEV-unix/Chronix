@@ -7,7 +7,7 @@ This is a browser-based x86-64 virtual PC, not a simulated desktop. The guest bo
 - The emulator is the x86-64-capable v86_64 project, pinned in the GitHub Actions workflow.
 - The browser runtime is compiled to WebAssembly and served as static assets.
 - The guest OS is a small Debian Trixie amd64 virtual hard disk built by `scripts/build_browser_disk.sh`.
-- The browser app asks the user to select the generated raw `.img` file, then runs it locally in the browser. Guest RAM choices are powers of two because that is required by the emulator.
+- The browser app downloads a gzip-compressed copy of the guest disk from the same Pages site, decompresses it in Chrome, and runs it locally. Users may optionally select a local raw `.img` file instead. Guest RAM choices are powers of two because that is required by the emulator.
 - The guest filesystem is held in browser memory while running. Use the Save disk image control before leaving to keep changes.
 
 ## Current preview limits
@@ -22,7 +22,7 @@ This is a browser-based x86-64 virtual PC, not a simulated desktop. The guest bo
 
 Run the `Build Chronix Browser Edition` GitHub Actions workflow. It compiles the emulator, creates and QEMU-smoke-tests the disk image, uploads the disk image as a workflow artifact, and deploys the browser front end to GitHub Pages.
 
-The disk artifact is a ZIP containing `chronix-browser-amd64.img`. Extract it before choosing the image in the browser page.
+The disk artifact is a ZIP containing `chronix-browser-amd64.img` for optional offline use. The website also includes a compressed disk image and can load it automatically.
 
 ## Emulator attribution
 
