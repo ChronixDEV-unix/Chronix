@@ -121,6 +121,18 @@ jobs:
           fi
           echo "The Chronix disk booted to graphical.target under QEMU."
 
+      - name: Compress virtual disk for the browser site
+        run: |
+          set -euo pipefail
+          gzip -1 -c "$RUNNER_TEMP/chronix-browser-amd64.img" > browser/site/vm/chronix-browser-amd64.img.gz
+          GZIP_SIZE="$(stat -c '%s' browser/site/vm/chronix-browser-amd64.img.gz)"
+          echo "Compressed browser disk bytes: $GZIP_SIZE"
+          if [ "$GZIP_SIZE" -gt $((900 * 1024 * 1024)) ]; then
+            echo "Compressed disk is too large for the planned Pages site." >&2
+            exit 1
+          fi
+          ls -lh browser/site/vm/chronix-browser-amd64.img.gz
+
       - name: Upload Chronix Browser VM disk image
         uses: actions/upload-artifact@v4
         with:
