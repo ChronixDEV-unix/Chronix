@@ -91,7 +91,7 @@ chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-i
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
 PASSWORD_HASH="$(openssl passwd -6 -salt "$(openssl rand -hex 8)" chronos)"
-echo "$PASSWORD_HASH" | chroot "$MOUNT_DIR" chpasswd --encrypted
+printf "chronos:%s\\n" "$PASSWORD_HASH" | chroot "$MOUNT_DIR" chpasswd --encrypted
 unset PASSWORD_HASH
 chroot "$MOUNT_DIR" usermod -aG sudo chronos
 install -d -m 0750 "$MOUNT_DIR/etc/sudoers.d"
@@ -163,9 +163,7 @@ ExecStart=/bin/sh -c 'echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0 2>/dev/null || 
 WantedBy=graphical.target
 EOF
 
-chroot "$MOUNT_DIR" systemctl enable lightdm
-chroot "$MOUNT_DIR" systemctl enable NetworkManager
-chroot "$MOUNT_DIR" systemctl enable chronix-browser-ready.service
+systemctl --root="$MOUNT_DIR" enable lightdm NetworkManager chronix-browser-ready.service
 chroot "$MOUNT_DIR" update-initramfs -u -k all
 chroot "$MOUNT_DIR" update-grub
 chroot "$MOUNT_DIR" grub-install --target=i386-pc --recheck "$LOOPDEV"
