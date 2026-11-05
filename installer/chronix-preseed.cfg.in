@@ -1,0 +1,22 @@
+# Chronix Standard 1.0 — Debian Installer preseed
+# This file only pre-fills the Chronix account and desktop setup.
+# Disk partitioning, locale, keyboard, network, and mirror selection remain interactive.
+
+d-i netcfg/get_hostname string chronix
+d-i netcfg/get_domain string local
+
+# Keep the standard root account, but lock direct root-password login.
+# The chronos account receives sudo access during the post-install step.
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string Chronix User
+d-i passwd/username string chronos
+d-i user-setup/allow-password-weak boolean true
+d-i passwd/user-password-crypted password @CHRONIX_PASSWORD_HASH@
+
+# Install the Chronix Standard JWM desktop and common applications.
+d-i pkgsel/include string jwm lightdm lightdm-gtk-greeter xserver-xorg xinit xterm pcmanfm lxappearance feh menu dbus-x11 sudo network-manager network-manager-gnome fonts-dejavu firefox-esr
+d-i pkgsel/upgrade select safe-upgrade
+
+# Copy Chronix's local configuration from the installation media and apply it
+# inside the newly installed system. The installer partitioning steps remain manual.
+d-i preseed/late_command string mkdir -p /target/tmp/chronix; cp -a /cdrom/chronix/. /target/tmp/chronix/; in-target /bin/sh /tmp/chronix/post-install.sh
