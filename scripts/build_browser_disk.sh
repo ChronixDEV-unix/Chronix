@@ -160,6 +160,7 @@ EOF
 
 systemctl --root="$MOUNT_DIR" enable lightdm chronix-browser-ready.service
 systemctl --root="$MOUNT_DIR" set-default graphical.target
+install -d -m 0755 "$MOUNT_DIR/boot/grub"
 chroot "$MOUNT_DIR" update-initramfs -u -k all
 chroot "$MOUNT_DIR" update-grub
 chroot "$MOUNT_DIR" grub-install --target=i386-pc --recheck "$LOOPDEV"
