@@ -62,7 +62,7 @@ diskInput.addEventListener("change", () => {
 
 async function stopMachine() {
   if (!emulator) return;
-  try { await emulator.stop(); } catch (error) { console.warn(error); }
+  try { await emulator.stop(); await emulator.destroy(); } catch (error) { console.warn(error); }
   running = false;
   starting = false;
   stopButton.disabled = true;
