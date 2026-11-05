@@ -124,7 +124,7 @@ jobs:
       - name: Compress virtual disk for the browser site
         run: |
           set -euo pipefail
-          gzip -1 -c "$RUNNER_TEMP/chronix-browser-amd64.img" > browser/site/vm/chronix-browser-amd64.img.gz
+          gzip -1 -c "$RUNNER_TEMP/chronix-browser-amd64.img" > browser/site/vm/chronix-browser-amd64.diskdata
           GZIP_SIZE="$(stat -c '%s' browser/site/vm/chronix-browser-amd64.img.gz)"
           echo "Compressed browser disk bytes: $GZIP_SIZE"
           if [ "$GZIP_SIZE" -gt $((900 * 1024 * 1024)) ]; then
