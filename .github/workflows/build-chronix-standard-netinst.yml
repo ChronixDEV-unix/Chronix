@@ -2,9 +2,6 @@ name: Build Chronix Standard NETINST
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - chronix-netinst-build
 
 permissions:
   contents: read
