@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 DISK_IMAGE="build/chronix-browser-amd64.img"
 MOUNT_DIR="${RUNNER_TEMP:-/tmp}/chronix-browser-root"
-DISK_SIZE="1200M"
+DISK_SIZE="2048M"
 SUITE="trixie"
 MIRROR="http://deb.debian.org/debian"
 if [ "$#" -ge 1 ]; then DISK_IMAGE="$1"; fi
@@ -83,10 +83,10 @@ printf 'lightdm shared/default-x-display-manager select lightdm\n' | chroot "$MO
 chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get update
 chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     linux-image-amd64 grub-pc-bin grub2-common \
-    xserver-xorg-core xserver-xorg-video-all xserver-xorg-input-all \
+    xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-input-libinput \
     lightdm lightdm-gtk-greeter \
     jwm xterm pcmanfm feh lxappearance \
-    dbus-x11 sudo network-manager network-manager-gnome \
+    dbus-x11 sudo \
     fonts-dejavu-core fonts-liberation2 e2fsprogs
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
@@ -130,11 +130,6 @@ chmod 0755 "$MOUNT_DIR/etc/skel/.xsession"
 install -m 0755 "$MOUNT_DIR/etc/skel/.xsession" "$MOUNT_DIR/home/chronos/.xsession"
 chroot "$MOUNT_DIR" chown chronos:chronos /home/chronos/.xsession
 
-cat > "$MOUNT_DIR/etc/NetworkManager/conf.d/10-chronix.conf" <<'EOF'
-[main]
-dhcp=internal
-EOF
-
 cat > "$MOUNT_DIR/etc/default/grub" <<'EOF'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=0
@@ -163,7 +158,7 @@ ExecStart=/bin/sh -c 'echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0 2>/dev/null || 
 WantedBy=graphical.target
 EOF
 
-systemctl --root="$MOUNT_DIR" enable lightdm NetworkManager chronix-browser-ready.service
+systemctl --root="$MOUNT_DIR" enable lightdm chronix-browser-ready.service
 systemctl --root="$MOUNT_DIR" set-default graphical.target
 chroot "$MOUNT_DIR" update-initramfs -u -k all
 chroot "$MOUNT_DIR" update-grub
