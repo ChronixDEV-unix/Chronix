@@ -91,7 +91,7 @@ chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-i
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
 PASSWORD_HASH="$(openssl passwd -6 -salt "$(openssl rand -hex 8)" chronos)"
-printf "chronos:%s\\n" "$PASSWORD_HASH" | chroot "$MOUNT_DIR" chpasswd --encrypted
+printf "chronos:%s\n" "$PASSWORD_HASH" | chroot "$MOUNT_DIR" chpasswd --encrypted
 unset PASSWORD_HASH
 chroot "$MOUNT_DIR" usermod -aG sudo chronos
 install -d -m 0750 "$MOUNT_DIR/etc/sudoers.d"
