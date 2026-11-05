@@ -152,8 +152,7 @@ EOF
 cat > "$MOUNT_DIR/etc/systemd/system/chronix-browser-ready.service" <<'EOF'
 [Unit]
 Description=Chronix browser VM boot marker
-After=graphical.target
-Wants=graphical.target
+After=display-manager.service
 
 [Service]
 Type=oneshot
