@@ -66,7 +66,8 @@ def set_text_installer_default(text: str) -> str:
         block[label_line] = indent + "menu label ^Chronix Installer (text mode)"
         block.insert(label_line + 1, indent + "menu default")
     else:
-        block.insert(1, "\tmenu label ^Chronix Installer (text mode)\n\tmenu default")
+        block.insert(1, "\tmenu label ^Chronix Installer (text mode)")
+        block.insert(2, "\tmenu default")
     lines[target:end] = block
     return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
 
@@ -89,13 +90,11 @@ def patch_grub(text: str) -> str:
     text = text.replace("Debian GNU/Linux", "Chronix")
     lines = text.splitlines()
     entry_names: list[str] = []
-    entry_line_indexes: list[int] = []
 
-    for index, line in enumerate(lines):
+    for line in lines:
         match = re.match(r"""^\s*menuentry\b.*?(['"])(.*?)\1""", line)
         if match:
             entry_names.append(match.group(2))
-            entry_line_indexes.append(index)
 
     default_index = None
     for index, name in enumerate(entry_names):
@@ -150,7 +149,7 @@ def update_md5sums(tree: Path, changed: set[str]) -> None:
         if "  " not in line:
             updated.append(line)
             continue
-        digest, listed = line.split("  ", 1)
+        _, listed = line.split("  ", 1)
         rel = listed.removeprefix("./").lstrip("/")
         file_path = tree / rel
         if rel in changed and file_path.is_file():
@@ -176,7 +175,6 @@ def copy_branding(tree: Path, assets: Path, repo_root: Path, changed: set[str]) 
     chronix_dir = tree / "chronix"
     chronix_dir.mkdir(parents=True, exist_ok=True)
 
-    # Installer assets are optional until the matching files are added to assets/branding.
     mapping = {
         "BOOT&ORGRUB.png": [("isolinux/splash.png", "boot"), ("boot/grub/chronix-background.png", "grub")],
         "logo.png": [("chronix/logo.png", "copy")],
@@ -206,9 +204,6 @@ def copy_branding(tree: Path, assets: Path, repo_root: Path, changed: set[str]) 
             shutil.copy2(legacy_logo, chronix_dir / "logo.png")
             changed.add("chronix/logo.png")
             print("Using the existing repository splash.png as the Chronix logo fallback.")
-
-    if (chronix_dir / "logo.png").is_file():
-        changed.add("chronix/logo.png")
 
 
 def main() -> None:
@@ -253,6 +248,7 @@ def main() -> None:
     )
 
     stdmenu_cfg = tree / "isolinux/stdmenu.cfg"
+
     def style_syslinux(s: str) -> str:
         replacements = {
             "menu color sel": "menu color sel\t\t* #ffffffff #d92755ff *",
@@ -265,6 +261,7 @@ def main() -> None:
                 line = replacements[" ".join(key[:3])]
             lines.append(line)
         return "\n".join(lines) + ("\n" if s.endswith("\n") else "")
+
     replace_text(stdmenu_cfg, style_syslinux, changed, tree)
 
     txt_cfg = tree / "isolinux/txt.cfg"
@@ -276,20 +273,19 @@ def main() -> None:
     if gtk_cfg.is_file():
         replace_text(gtk_cfg, soften_graphical_default, changed, tree)
 
-    # Apply the preseed path to alternate text installer entries, too.
+    # Apply the preseed path to alternate installer entries as well.
     for cfg in (tree / "isolinux").glob("*.cfg"):
         if cfg in (txt_cfg, gtk_cfg):
             continue
         replace_text(cfg, add_preseed_to_append, changed, tree)
 
-    # Change visible branding and kernel parameters in GRUB while retaining its boot entries.
-    grub_cfgs = list((tree / "boot/grub").glob("*.cfg")) if (tree / "boot/grub").is_dir() else []
+    grub_dir = tree / "boot/grub"
+    grub_cfgs = list(grub_dir.glob("*.cfg")) if grub_dir.is_dir() else []
     if not grub_cfgs:
         fail("The GRUB configuration under /boot/grub was not found.")
     for cfg in grub_cfgs:
         replace_text(cfg, patch_grub, changed, tree)
 
-    # Add Chronix installer-side configuration and artwork.
     installer_dir = repo_root / "installer"
     chronix_dir = tree / "chronix"
     chronix_dir.mkdir(parents=True, exist_ok=True)
@@ -301,8 +297,7 @@ def main() -> None:
         shutil.copy2(source, dest)
         changed.add(dest.relative_to(tree).as_posix())
 
-    readme = chronix_dir / "README.txt"
-    readme.write_text(
+    (chronix_dir / "README.txt").write_text(
         "CHRONIX STANDARD 1.0\n"
         "Debian 13.7 Trixie amd64 NETINST base\n\n"
         "Installer mode: classic Debian text installer.\n"
@@ -324,13 +319,11 @@ def main() -> None:
     preseed = template_path.read_text(encoding="utf-8").replace("@CHRONIX_PASSWORD_HASH@", password_hash)
     if "@CHRONIX_PASSWORD_HASH@" in preseed:
         fail("Password hash placeholder was not replaced.")
-    preseed_path = tree / "chronix-preseed.cfg"
-    preseed_path.write_text(preseed, encoding="utf-8")
+    (tree / "chronix-preseed.cfg").write_text(preseed, encoding="utf-8")
     changed.add("chronix-preseed.cfg")
 
     copy_branding(tree, assets, repo_root, changed)
 
-    # The ISO's disc metadata should identify Chronix, not Debian.
     disk_info = tree / ".disk/info"
     disk_info.parent.mkdir(parents=True, exist_ok=True)
     disk_info.write_text(
@@ -341,16 +334,14 @@ def main() -> None:
 
     update_md5sums(tree, changed)
 
-    # Avoid remapping the El Torito boot image itself. The original boot images
-    # stay in place; xorriso replays the original BIOS/UEFI boot records below.
-    changed.discard("md5sum.txt")
+    # Build a list of changed files. The new /chronix folder is mapped once.
     map_pairs = []
     for rel in sorted(changed):
+        if rel.startswith("chronix/"):
+            continue
         local_path = tree / rel
         if local_path.is_file():
             map_pairs.extend(["-map", str(local_path), "/" + rel])
-
-    # Add the new Chronix directory as a single ISO tree mapping.
     map_pairs.extend(["-map", str(chronix_dir), "/chronix"])
 
     output_iso.parent.mkdir(parents=True, exist_ok=True)
