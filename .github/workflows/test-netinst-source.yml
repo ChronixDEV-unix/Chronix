@@ -1,0 +1,74 @@
+name: Test Debian NETINST source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-and-verify:
+    name: Download and verify Debian 13.7 NETINST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out Chronix
+        uses: actions/checkout@v4
+
+      - name: Install ISO inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xorriso
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Google Drive downloader
+        run: |
+          python -m venv "$RUNNER_TEMP/gdown-venv"
+          "$RUNNER_TEMP/gdown-venv/bin/pip" install --disable-pip-version-check "gdown==5.2.0"
+
+      - name: Download the shared NETINST ISO
+        env:
+          DEBIAN_ISO_URL: https://drive.google.com/file/d/1MJTKUhgiCgoTxpw7DspBm56azr5QVVKB/view?usp=drive_link
+        run: |
+          set -euo pipefail
+          ISO_PATH="$RUNNER_TEMP/debian-13.7-amd64-netinst.iso"
+          "$RUNNER_TEMP/gdown-venv/bin/gdown" --fuzzy --output "$ISO_PATH" "$DEBIAN_ISO_URL"
+          test -s "$ISO_PATH"
+          echo "ISO_PATH=$ISO_PATH" >> "$GITHUB_ENV"
+          ls -lh "$ISO_PATH"
+
+      - name: Check size and ISO filesystem
+        run: |
+          set -euo pipefail
+          SIZE="$(stat -c '%s' "$ISO_PATH")"
+          MIN_SIZE=$((700 * 1024 * 1024))
+          MAX_SIZE=$((800 * 1024 * 1024))
+          echo "Downloaded bytes: $SIZE"
+          if [ "$SIZE" -lt "$MIN_SIZE" ] || [ "$SIZE" -gt "$MAX_SIZE" ]; then
+            echo "The downloaded file is outside the expected 700–800 MiB range." >&2
+            exit 1
+          fi
+
+          file "$ISO_PATH"
+          xorriso -indev "$ISO_PATH" -toc
+
+      - name: Check Debian NETINST identity
+        run: |
+          set -euo pipefail
+          INFO="$RUNNER_TEMP/debian-disk-info.txt"
+          xorriso -osirrox on -indev "$ISO_PATH" -extract /.disk/info "$INFO"
+          cat "$INFO"
+          grep -Eiq 'Debian' "$INFO"
+          grep -Eiq 'amd64' "$INFO"
+          grep -Eiq 'netinst' "$INFO"
+
+      - name: Record source checksum
+        run: |
+          set -euo pipefail
+          sha256sum "$ISO_PATH"
+          echo "Download and ISO checks passed. The ISO was not uploaded to the repository or retained as an artifact."
