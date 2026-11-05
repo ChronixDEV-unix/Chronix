@@ -152,6 +152,7 @@ EOF
 cat > "$MOUNT_DIR/etc/systemd/system/chronix-browser-ready.service" <<'EOF'
 [Unit]
 Description=Chronix browser VM boot marker
+Requires=display-manager.service
 After=display-manager.service
 
 [Service]
@@ -163,6 +164,7 @@ WantedBy=graphical.target
 EOF
 
 systemctl --root="$MOUNT_DIR" enable lightdm NetworkManager chronix-browser-ready.service
+systemctl --root="$MOUNT_DIR" set-default graphical.target
 chroot "$MOUNT_DIR" update-initramfs -u -k all
 chroot "$MOUNT_DIR" update-grub
 chroot "$MOUNT_DIR" grub-install --target=i386-pc --recheck "$LOOPDEV"
