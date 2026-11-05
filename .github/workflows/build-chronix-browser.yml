@@ -10,6 +10,7 @@ on:
       - "scripts/build_browser_disk.sh"
       - "installer/jwmrc"
       - "splash.png"
+      - ".github/workflows/build-chronix-browser.yml"
 
 permissions:
   contents: read
