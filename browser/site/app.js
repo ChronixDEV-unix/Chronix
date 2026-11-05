@@ -71,7 +71,15 @@ async function stopMachine() {
   startButton.disabled = !selectedFile;
   fullscreenButton.disabled = true;
   setStatus("Machine stopped");
-  setMessage("Machine stopped. Save the disk image before closing to keep changes.");
+  setMessage("Machine stopped. Save the disk image, then choose that saved file next time.");
+  emulator = null;
+  diskInput.disabled = false;
+  memorySelect.disabled = false;
+  selectedFile = null;
+  diskInput.value = "";
+  byId("file-name").textContent = "Choose disk image…";
+  byId("file-size").textContent = "Raw .img virtual hard disk";
+  startButton.disabled = true;
 }
 
 async function startMachine() {
@@ -101,7 +109,6 @@ async function startMachine() {
       memory_size: Number(memorySelect.value) * 1024 * 1024,
       vga_memory_size: 16 * 1024 * 1024,
       screen_container: screenContainer,
-      serial_container: serialLog,
       bios: { url: "./vm/bios/seabios.bin" },
       vga_bios: { url: "./vm/bios/vgabios.bin" },
       hda: { buffer: diskBuffer },
