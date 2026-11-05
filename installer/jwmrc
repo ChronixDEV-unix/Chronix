@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<JWM>
+  <!-- Chronix Standard: compact, classic desktop styling inspired by KDE 3. -->
+  <RootMenu onroot="3">
+    <Program label="Terminal">x-terminal-emulator</Program>
+    <Program label="File Manager">pcmanfm</Program>
+    <Program label="Web Browser">x-www-browser</Program>
+    <Separator/>
+    <Program label="Appearance">lxappearance</Program>
+    <Separator/>
+    <Restart label="Restart JWM"/>
+    <Exit label="Log Out"/>
+  </RootMenu>
+
+  <Group>
+    <Option>tiled</Option>
+  </Group>
+
+  <Tray x="0" y="-1" width="100%" height="34" autohide="false"
+        halign="center" valign="bottom" layout="horizontal">
+    <TrayButton label="Chronix">root:1</TrayButton>
+    <Spacer width="6"/>
+    <Pager/>
+    <TaskList maxwidth="420"/>
+    <Dock/>
+    <Clock format="%a %d %b  %H:%M"/>
+  </Tray>
+
+  <TrayStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#171923</Foreground>
+    <Background>#c5c9d2</Background>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#d92755</Background>
+    </Active>
+  </TrayStyle>
+
+  <TrayButtonStyle>
+    <Font>DejaVu Sans-Bold-10</Font>
+    <Foreground>#ffffff</Foreground>
+    <Background>#b51e46</Background>
+  </TrayButtonStyle>
+
+  <TaskListStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#171923</Foreground>
+    <Background>#d4d7df</Background>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#174ea6</Background>
+    </Active>
+  </TaskListStyle>
+
+  <PopupStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Foreground>#171923</Foreground>
+    <Background>#e4e6ec</Background>
+  </PopupStyle>
+
+  <Key key="A-F4">close</Key>
+  <Key key="A-Tab">next</Key>
+  <Key key="A-F2">exec:x-terminal-emulator</Key>
+
+  <Desktops width="2" height="2">
+    <Background type="solid" color="#20242d"/>
+  </Desktops>
+
+  <WindowStyle>
+    <Font>DejaVu Sans-10</Font>
+    <Width>4</Width>
+    <Height>24</Height>
+    <Corner>2</Corner>
+    <Active>
+      <Foreground>#ffffff</Foreground>
+      <Background>#174ea6</Background>
+      <Outline>#092b62</Outline>
+    </Active>
+    <Inactive>
+      <Foreground>#20242b</Foreground>
+      <Background>#c5c9d2</Background>
+      <Outline>#777f8d</Outline>
+    </Inactive>
+  </WindowStyle>
+</JWM>
