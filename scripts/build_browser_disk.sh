@@ -97,7 +97,7 @@ timeout 20m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
     apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
     install -y --no-install-recommends \
     linux-image-amd64 grub-pc-bin grub2-common \
-    xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-input-libinput \
+    xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-video-vesa xserver-xorg-input-libinput \
     lightdm lightdm-gtk-greeter \
     jwm xterm pcmanfm feh lxappearance \
     dbus-x11 sudo \
@@ -115,7 +115,14 @@ chmod 0440 "$MOUNT_DIR/etc/sudoers.d/chronos"
 chroot "$MOUNT_DIR" visudo -cf /etc/sudoers
 
 install -d "$MOUNT_DIR/etc/jwm" "$MOUNT_DIR/etc/lightdm/lightdm.conf.d" \
+    "$MOUNT_DIR/etc/X11/xorg.conf.d" \
     "$MOUNT_DIR/usr/share/backgrounds/chronix" "$MOUNT_DIR/usr/share/pixmaps"
+cat > "$MOUNT_DIR/etc/X11/xorg.conf.d/20-chronix-vga.conf" <<'EOF'
+Section "Device"
+    Identifier "Chronix virtual VGA"
+    Driver "vesa"
+EndSection
+EOF
 install -m 0644 installer/jwmrc "$MOUNT_DIR/etc/jwm/jwmrc"
 # The browser preview has no guest browser application; the Chrome tab is the browser.
 sed -i '/label="Web Browser"/d' "$MOUNT_DIR/etc/jwm/jwmrc"
