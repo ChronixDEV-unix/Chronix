@@ -77,7 +77,17 @@
           <span class="browse-label">Browse</span>
         </label>
         <input id="disk-file" type="file" accept=".img,.raw,application/octet-stream">
-        <div class="section-label memory-label">02 · MEMORY</div>
+        <div class="section-label memory-label">02 · DISK CAPACITY</div>
+        <label class="select-label" for="disk-size">Virtual disk size</label>
+        <select id="disk-size">
+          <option value="1.5" selected>1.5 GiB · Lightweight</option>
+          <option value="2">2 GiB</option>
+          <option value="4">4 GiB · Recommended</option>
+          <option value="8">8 GiB</option>
+          <option value="16">16 GiB · Maximum</option>
+        </select>
+        <p class="muted">Larger disks require more Chromebook memory. The selected capacity is applied when the VM starts.</p>
+        <div class="section-label memory-label">03 · MEMORY</div>
         <label class="select-label" for="memory-size">Virtual machine RAM</label>
         <select id="memory-size">
           <option value="512" selected>512 MB · Lightweight</option>
