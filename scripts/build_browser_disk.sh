@@ -5,7 +5,7 @@ DISK_IMAGE="build/chronix-browser-amd64.img"
 MOUNT_DIR="${RUNNER_TEMP:-/tmp}/chronix-browser-root"
 DISK_SIZE="2048M"
 SUITE="trixie"
-MIRROR="http://deb.debian.org/debian"
+MIRROR="https://deb.debian.org/debian"
 if [ "$#" -ge 1 ]; then DISK_IMAGE="$1"; fi
 if [ "$#" -ge 2 ]; then MOUNT_DIR="$2"; fi
 
@@ -46,10 +46,19 @@ mkfs.ext4 -F -m 0 -L CHRONIX_ROOT "$PARTITION"
 mount "$PARTITION" "$MOUNT_DIR"
 MOUNTED=1
 
-debootstrap --arch=amd64 --variant=minbase \
+echo "Bootstrapping Debian $SUITE from $MIRROR..."
+timeout 20m debootstrap --verbose --arch=amd64 --variant=minbase \
     --include=ca-certificates,apt-utils,systemd,systemd-sysv \
     --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
     "$SUITE" "$MOUNT_DIR" "$MIRROR"
+
+install -d "$MOUNT_DIR/etc/apt/apt.conf.d"
+cat > "$MOUNT_DIR/etc/apt/apt.conf.d/99chronix-retries" <<'EOF'
+Acquire::Retries "3";
+Acquire::http::Timeout "30";
+Acquire::https::Timeout "30";
+Dpkg::Use-Pty "0";
+EOF
 
 install -d "$MOUNT_DIR/etc/apt/sources.list.d"
 cat > "$MOUNT_DIR/etc/apt/sources.list.d/debian.sources" <<EOF
@@ -80,8 +89,13 @@ cat > "$MOUNT_DIR/etc/hosts" <<'EOF'
 EOF
 
 printf 'lightdm shared/default-x-display-manager select lightdm\n' | chroot "$MOUNT_DIR" debconf-set-selections
-chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get update
-chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+echo "Refreshing package indexes inside the Chronix disk..."
+timeout 12m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+echo "Installing the Chronix desktop..."
+timeout 20m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+    install -y --no-install-recommends \
     linux-image-amd64 grub-pc-bin grub2-common \
     xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-input-libinput \
     lightdm lightdm-gtk-greeter \
@@ -90,12 +104,13 @@ chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-i
     fonts-dejavu-core fonts-liberation2 e2fsprogs
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
-PASSWORD_HASH="$(openssl passwd -6 -salt "$(openssl rand -hex 8)" chronos)"
-printf "chronos:%s\n" "$PASSWORD_HASH" | chroot "$MOUNT_DIR" chpasswd --encrypted
-unset PASSWORD_HASH
+# Browser preview auto-logs into this local VM account. Do not ship a shared
+# well-known password; allow administrative commands only inside this isolated
+# preview VM without prompting for an unknown password.
+chroot "$MOUNT_DIR" passwd --lock chronos
 chroot "$MOUNT_DIR" usermod -aG sudo chronos
 install -d -m 0750 "$MOUNT_DIR/etc/sudoers.d"
-printf 'chronos ALL=(ALL:ALL) ALL\n' > "$MOUNT_DIR/etc/sudoers.d/chronos"
+printf 'chronos ALL=(ALL:ALL) NOPASSWD: ALL\n' > "$MOUNT_DIR/etc/sudoers.d/chronos"
 chmod 0440 "$MOUNT_DIR/etc/sudoers.d/chronos"
 
 install -d "$MOUNT_DIR/etc/jwm" "$MOUNT_DIR/etc/lightdm/lightdm.conf.d" \
@@ -165,7 +180,7 @@ chroot "$MOUNT_DIR" update-initramfs -u -k all
 chroot "$MOUNT_DIR" update-grub
 chroot "$MOUNT_DIR" grub-install --target=i386-pc --recheck "$LOOPDEV"
 
-chroot "$MOUNT_DIR" apt-get clean
+timeout 3m chroot "$MOUNT_DIR" apt-get clean
 rm -rf "$MOUNT_DIR/var/lib/apt/lists/"*
 find "$MOUNT_DIR/var/log" -type f -exec truncate -s 0 {} \; || true
 rm -f "$MOUNT_DIR/etc/resolv.conf"
