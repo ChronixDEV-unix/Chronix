@@ -1,0 +1,3 @@
+Chronix Browser Edition Preview 0.1
+Source branch: chronix-netinst-build
+Emulator: v86_64 (pinned revision recorded under vm/EMULATOR-REVISION.txt)
