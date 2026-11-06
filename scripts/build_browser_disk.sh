@@ -172,19 +172,28 @@ EOF
 cat > "$MOUNT_DIR/etc/systemd/system/chronix-browser-ready.service" <<'EOF'
 [Unit]
 Description=Chronix browser VM graphical desktop readiness check
-Requires=display-manager.service
-After=display-manager.service
+After=lightdm.service
+Wants=lightdm.service
 
 [Service]
 Type=oneshot
-TimeoutStartSec=190
-ExecStart=/bin/sh -c 'for i in $(seq 1 90); do for f in /proc/[0-9]*/comm; do IFS= read -r name < "$f" || continue; if [ "$name" = "jwm" ]; then echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0; exit 0; fi; done; sleep 2; done; echo CHRONIX_BROWSER_VM_GUI_TIMEOUT > /dev/ttyS0; exit 1'
+TimeoutStartSec=220
+ExecStart=/bin/sh -c 'for i in $(seq 1 90); do for f in /proc/[0-9]*/comm; do IFS= read -r name < "$f" || continue; if [ "$name" = "jwm" ]; then echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0; exit 0; fi; done; sleep 2; done; echo "Chronix graphical session did not start; diagnostics follow:" > /dev/ttyS0; systemctl --no-pager --full status lightdm.service > /dev/ttyS0 2>&1 || true; for f in /var/log/lightdm/lightdm.log /var/log/lightdm/x-0.log /var/log/Xorg.0.log; do if [ -r "$f" ]; then echo "--- $f ---" > /dev/ttyS0; tail -n 100 "$f" > /dev/ttyS0; fi; done; echo CHRONIX_BROWSER_VM_GUI_TIMEOUT > /dev/ttyS0; exit 1'
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
 EOF
 
-systemctl --root="$MOUNT_DIR" enable lightdm chronix-browser-ready.service
+# Explicitly enable LightDM and the readiness check. Minimal debootstrap
+# roots may not create the display-manager alias or wanted links reliably.
+install -d "$MOUNT_DIR/etc/systemd/system/graphical.target.wants" \
+    "$MOUNT_DIR/etc/systemd/system/multi-user.target.wants"
+ln -sfn /lib/systemd/system/lightdm.service \
+    "$MOUNT_DIR/etc/systemd/system/display-manager.service"
+ln -sfn /lib/systemd/system/lightdm.service \
+    "$MOUNT_DIR/etc/systemd/system/graphical.target.wants/lightdm.service"
+ln -sfn /etc/systemd/system/chronix-browser-ready.service \
+    "$MOUNT_DIR/etc/systemd/system/multi-user.target.wants/chronix-browser-ready.service"
 systemctl --root="$MOUNT_DIR" set-default graphical.target
 install -d -m 0755 "$MOUNT_DIR/boot/grub"
 chroot "$MOUNT_DIR" update-initramfs -u -k all
