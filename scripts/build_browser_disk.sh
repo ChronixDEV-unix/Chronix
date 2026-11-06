@@ -96,7 +96,7 @@ echo "Installing the Chronix desktop..."
 timeout 20m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
     apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
     install -y --no-install-recommends \
-    linux-image-amd64 grub-pc-bin grub2-common \
+    linux-image-amd64 grub-pc-bin grub2-common cloud-guest-utils \
     xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-input-libinput \
     x11-common \
     lightdm lightdm-gtk-greeter \
@@ -190,6 +190,22 @@ chroot "$MOUNT_DIR" dpkg --audit
 chroot "$MOUNT_DIR" dpkg-query -W -f='${db:Status-Status} ${binary:Package}\n' \
     xserver-xorg-core lightdm lightdm-gtk-greeter jwm dbus dbus-x11 x11-common
 
+cat > "$MOUNT_DIR/etc/systemd/system/chronix-grow-root.service" <<'EOF'
+[Unit]
+Description=Expand Chronix root filesystem to the virtual disk capacity
+DefaultDependencies=no
+After=local-fs-pre.target
+Before=local-fs.target lightdm.service
+Wants=local-fs-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'rootdev=$(findmnt -n -o SOURCE /); case "$rootdev" in /dev/hda1) disk=/dev/hda ;; /dev/sda1) disk=/dev/sda ;; *) echo "Unknown root device: $rootdev"; exit 0 ;; esac; growpart "$disk" 1; resize2fs "$rootdev"'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 cat > "$MOUNT_DIR/etc/default/grub" <<'EOF'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=0
@@ -223,6 +239,8 @@ EOF
 # roots may not create the display-manager alias or wanted links reliably.
 install -d "$MOUNT_DIR/etc/systemd/system/graphical.target.wants" \
     "$MOUNT_DIR/etc/systemd/system/multi-user.target.wants"
+ln -sfn /etc/systemd/system/chronix-grow-root.service \
+    "$MOUNT_DIR/etc/systemd/system/multi-user.target.wants/chronix-grow-root.service"
 ln -sfn /lib/systemd/system/lightdm.service \
     "$MOUNT_DIR/etc/systemd/system/display-manager.service"
 ln -sfn /lib/systemd/system/lightdm.service \
