@@ -1,0 +1,163 @@
+name: Build Chronix Browser Edition
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - chronix-netinst-build
+    paths:
+      - "browser/**"
+      - "scripts/build_browser_disk.sh"
+      - "installer/jwmrc"
+      - "splash.png"
+      - ".github/workflows/build-chronix-browser.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: chronix-browser-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build x86-64 emulator and Chronix virtual disk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out Chronix
+        uses: actions/checkout@v4
+
+      - name: Install emulator and disk-image build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang nasm default-jdk-headless wget python3 \
+            debootstrap debian-archive-keyring e2fsprogs parted dosfstools qemu-system-x86 \
+            grub-pc-bin grub2-common openssl file
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.16.0"
+
+      - name: Set up Rust and the WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Check out pinned v86_64 emulator source
+        run: |
+          git clone --filter=blob:none https://github.com/portlandhodl/v86_64.git "$RUNNER_TEMP/v86_64"
+          git -C "$RUNNER_TEMP/v86_64" checkout c394574477b57eadfc859f593b4aecb08fa37cb6
+
+      - name: Build the browser emulator
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/v86_64"
+          make WASM_OPT=false GZIP=false build/libv86.mjs build/v86.wasm
+          test -s build/libv86.mjs
+          test -s build/v86.wasm
+          mkdir -p "$GITHUB_WORKSPACE/browser/site/vm/build" \
+                   "$GITHUB_WORKSPACE/browser/site/vm/bios" \
+                   "$GITHUB_WORKSPACE/browser/site/licenses"
+          install -m 0644 build/libv86.mjs "$GITHUB_WORKSPACE/browser/site/vm/build/libv86.mjs"
+          install -m 0644 build/v86.wasm "$GITHUB_WORKSPACE/browser/site/vm/build/v86.wasm"
+          install -m 0644 bios/seabios.bin "$GITHUB_WORKSPACE/browser/site/vm/bios/seabios.bin"
+          install -m 0644 bios/vgabios.bin "$GITHUB_WORKSPACE/browser/site/vm/bios/vgabios.bin"
+          install -m 0644 LICENSE "$GITHUB_WORKSPACE/browser/site/licenses/v86_64-BSD-2-Clause.txt"
+          install -m 0644 bios/COPYING.LESSER "$GITHUB_WORKSPACE/browser/site/licenses/bios-COPYING.LESSER.txt"
+          printf 'v86_64 source revision: c394574477b57eadfc859f593b4aecb08fa37cb6\n' \
+            > "$GITHUB_WORKSPACE/browser/site/vm/EMULATOR-REVISION.txt"
+
+      - name: Build the Chronix Debian desktop disk image
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build_browser_disk.sh
+          sudo bash scripts/build_browser_disk.sh \
+            "$RUNNER_TEMP/chronix-browser-amd64.img" \
+            "$RUNNER_TEMP/chronix-browser-root"
+          test -s "$RUNNER_TEMP/chronix-browser-amd64.img"
+          file "$RUNNER_TEMP/chronix-browser-amd64.img"
+          sha256sum "$RUNNER_TEMP/chronix-browser-amd64.img"
+
+      - name: Smoke-test the virtual disk with QEMU
+        run: |
+          set -euo pipefail
+          IMAGE="$RUNNER_TEMP/chronix-browser-amd64.img"
+          LOG="$RUNNER_TEMP/chronix-browser-qemu.log"
+          sudo qemu-system-x86_64 \
+            -accel tcg \
+            -machine pc \
+            -cpu qemu64 \
+            -m 1024 \
+            -drive "file=$IMAGE,format=raw,if=ide" \
+            -display none \
+            -serial "file:$LOG" \
+            -monitor none \
+            -no-reboot \
+            -no-shutdown &
+          QEMU_PID=$!
+          BOOTED=0
+          for _ in $(seq 1 120); do
+            if [ -f "$LOG" ] && grep -q "CHRONIX_BROWSER_VM_READY" "$LOG"; then
+              BOOTED=1
+              break
+            fi
+            if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          sudo kill "$QEMU_PID" 2>/dev/null || true
+          wait "$QEMU_PID" 2>/dev/null || true
+          if [ "$BOOTED" -ne 1 ]; then
+            echo "The virtual disk did not reach graphical.target within the smoke-test window." >&2
+            [ ! -f "$LOG" ] || tail -n 160 "$LOG"
+            exit 1
+          fi
+          echo "The Chronix disk booted to graphical.target under QEMU."
+
+      - name: Compress virtual disk for the browser site
+        run: |
+          set -euo pipefail
+          gzip -1 -c "$RUNNER_TEMP/chronix-browser-amd64.img" > browser/site/vm/chronix-browser-amd64.diskdata
+          GZIP_SIZE="$(stat -c '%s' browser/site/vm/chronix-browser-amd64.diskdata)"
+          echo "Compressed browser disk bytes: $GZIP_SIZE"
+          if [ "$GZIP_SIZE" -gt $((900 * 1024 * 1024)) ]; then
+            echo "Compressed disk is too large for the planned Pages site." >&2
+            exit 1
+          fi
+          ls -lh browser/site/vm/chronix-browser-amd64.diskdata
+
+      - name: Upload Chronix Browser VM disk image
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronix-browser-vm-amd64
+          path: ${{ runner.temp }}/chronix-browser-amd64.img
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 14
+
+      - name: Upload browser site files for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: browser/site
+
+  deploy:
+    name: Publish Chronix Browser Edition
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy browser edition
+        id: deployment
+        uses: actions/deploy-pages@v4

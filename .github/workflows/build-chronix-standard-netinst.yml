@@ -1,0 +1,121 @@
+name: Build Chronix Standard NETINST
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-netinst:
+    name: Remaster Debian 13.7 into Chronix Standard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out Chronix
+        uses: actions/checkout@v4
+
+      - name: Install ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xorriso openssl
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax-check the remaster script
+        run: python3 -m py_compile scripts/remaster_chronix_netinst.py
+
+      - name: Install Google Drive downloader
+        run: |
+          python -m venv "$RUNNER_TEMP/gdown-venv"
+          "$RUNNER_TEMP/gdown-venv/bin/pip" install --disable-pip-version-check "gdown==5.2.0"
+
+      - name: Download the verified Debian 13.7 NETINST source
+        env:
+          DEBIAN_ISO_URL: https://drive.google.com/file/d/1MJTKUhgiCgoTxpw7DspBm56azr5QVVKB/view?usp=drive_link
+        run: |
+          set -euo pipefail
+          BASE_ISO="$RUNNER_TEMP/debian-13.7-amd64-netinst.iso"
+          "$RUNNER_TEMP/gdown-venv/bin/gdown" --fuzzy --output "$BASE_ISO" "$DEBIAN_ISO_URL"
+          test -s "$BASE_ISO"
+
+          SIZE="$(stat -c '%s' "$BASE_ISO")"
+          echo "Source ISO bytes: $SIZE"
+          if [ "$SIZE" -lt $((700 * 1024 * 1024)) ] || [ "$SIZE" -gt $((800 * 1024 * 1024)) ]; then
+            echo "The downloaded source is outside the expected 700–800 MiB range." >&2
+            exit 1
+          fi
+
+          file "$BASE_ISO"
+          xorriso -indev "$BASE_ISO" -toc
+          echo "BASE_ISO=$BASE_ISO" >> "$GITHUB_ENV"
+
+      - name: Extract the original installer filesystem
+        run: |
+          set -euo pipefail
+          ISO_TREE="$RUNNER_TEMP/debian-netinst-tree"
+          mkdir -p "$ISO_TREE"
+          xorriso -osirrox on -indev "$BASE_ISO" -extract / "$ISO_TREE"
+          chmod -R u+rwX "$ISO_TREE"
+
+          test -s "$ISO_TREE/install.amd/vmlinuz"
+          test -s "$ISO_TREE/install.amd/initrd.gz"
+          test -s "$ISO_TREE/isolinux/isolinux.bin"
+          test -s "$ISO_TREE/boot/grub/grub.cfg"
+          echo "ISO_TREE=$ISO_TREE" >> "$GITHUB_ENV"
+
+      - name: Generate the Chronix default password hash and remaster
+        run: |
+          set -euo pipefail
+          HASH="$(openssl passwd -6 -salt "$(openssl rand -hex 8)" chronos)"
+          echo "::add-mask::$HASH"
+          CHRONIX_PASSWORD_HASH="$HASH" python3 scripts/remaster_chronix_netinst.py \
+            --iso-tree "$ISO_TREE" \
+            --base-iso "$BASE_ISO" \
+            --output-iso "$RUNNER_TEMP/chronix-standard-1.0-amd64-netinst.iso" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --assets-dir "$GITHUB_WORKSPACE/assets/branding"
+          echo "OUTPUT_ISO=$RUNNER_TEMP/chronix-standard-1.0-amd64-netinst.iso" >> "$GITHUB_ENV"
+
+      - name: Verify Chronix metadata, menu, preseed, and boot records
+        run: |
+          set -euo pipefail
+          INFO="$RUNNER_TEMP/chronix-disk-info.txt"
+          PRESEED="$RUNNER_TEMP/chronix-preseed-check.cfg"
+          TEXT_MENU="$RUNNER_TEMP/chronix-text-menu.cfg"
+          BOOT_REPORT="$RUNNER_TEMP/chronix-boot-report.txt"
+
+          xorriso -osirrox on -indev "$OUTPUT_ISO" -extract /.disk/info "$INFO"
+          xorriso -osirrox on -indev "$OUTPUT_ISO" -extract /chronix-preseed.cfg "$PRESEED"
+          xorriso -osirrox on -indev "$OUTPUT_ISO" -extract /isolinux/txt.cfg "$TEXT_MENU"
+          xorriso -indev "$OUTPUT_ISO" -report_el_torito plain 2>&1 | tee "$BOOT_REPORT"
+
+          grep -Fq "Chronix Standard 1.0" "$INFO"
+          grep -Fq "Chronix Installer (text mode)" "$TEXT_MENU"
+          grep -Fq "file=/cdrom/chronix-preseed.cfg" "$TEXT_MENU"
+          grep -Fq "passwd/username string chronos" "$PRESEED"
+          grep -Fq "passwd/user-password-crypted password" "$PRESEED"
+          grep -Fq "jwm" "$PRESEED"
+          grep -Fq "lightdm" "$PRESEED"
+          grep -Eiq "El Torito|Boot catalog" "$BOOT_REPORT"
+
+          echo "Chronix metadata and installer configuration checks passed."
+          file "$OUTPUT_ISO"
+          ls -lh "$OUTPUT_ISO"
+          sha256sum "$OUTPUT_ISO"
+
+      - name: Stage ISO for artifact upload
+        run: cp "$OUTPUT_ISO" "$GITHUB_WORKSPACE/chronix-standard-1.0-amd64-netinst.iso"
+
+      - name: Upload Chronix Standard NETINST ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronix-standard-1.0-amd64-netinst
+          path: chronix-standard-1.0-amd64-netinst.iso
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

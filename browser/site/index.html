@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#a91f43">
+  <title>Chronix Browser Edition</title>
+  <link rel="icon" href="./assets/chronix.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="./assets/chronix.svg" alt="" class="brand-mark">
+      <div>
+        <div class="brand-name">CHRONIX</div>
+        <div class="brand-edition">BROWSER EDITION · PREVIEW</div>
+      </div>
+    </div>
+    <a class="repo-link" href="https://github.com/ChronixDEV-unix/Chronix" target="_blank" rel="noreferrer">Source repository ↗</a>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div class="eyebrow">A REAL LINUX MACHINE IN YOUR TAB</div>
+      <h1>Chronix, running in Chrome.</h1>
+      <p>This preview emulates a complete x86-64 PC in your browser. It boots a real Debian Linux kernel and the Chronix JWM desktop. Nothing is installed on your Chromebook.</p>
+    </section>
+
+    <section class="machine-card" aria-label="Chronix virtual machine">
+      <div class="machine-toolbar">
+        <div class="machine-title">
+          <span class="status-dot" id="status-dot"></span>
+          <div>
+            <strong>Chronix Standard</strong>
+            <span id="status-text">Machine powered off</span>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button id="fullscreen-btn" class="button quiet" type="button" disabled>Fullscreen</button>
+          <button id="stop-btn" class="button quiet" type="button" disabled>Stop</button>
+          <button id="save-disk-btn" class="button quiet" type="button" disabled>Save disk image</button>
+          <button id="restart-btn" class="button quiet" type="button" disabled>Restart</button>
+        </div>
+      </div>
+
+      <div class="screen-frame">
+        <div id="screen_container" class="screen-container" tabindex="0" aria-label="Chronix virtual machine display">
+          <div class="screen-text"></div>
+          <canvas class="screen-canvas" style="display:none"></canvas>
+        </div>
+        <div id="screen-placeholder" class="screen-placeholder">
+          <div class="placeholder-mark">C</div>
+          <div class="placeholder-title">CHRONIX</div>
+          <div class="placeholder-subtitle">BROWSER EDITION</div>
+          <p>Power on to load the built-in Chronix disk image.</p>
+        </div>
+      </div>
+
+      <div class="machine-footer">
+        <span>Click the display to send keyboard input</span>
+        <span id="resolution-label">1024 × 768 target</span>
+      </div>
+    </section>
+
+    <section class="setup-grid">
+      <div class="setup-card">
+        <div class="section-label">01 · VIRTUAL DISK</div>
+        <h2>Choose your Chronix image</h2>
+        <p class="muted">The Chronix disk image is included with this page and loads automatically. You can optionally choose a local <code>.img</code> file instead.</p>
+        <label class="file-picker" for="disk-file">
+          <span class="file-icon">▤</span>
+          <span class="file-copy">
+            <strong id="file-name">Choose disk image…</strong>
+            <small id="file-size">Built-in disk loads automatically</small>
+          </span>
+          <span class="browse-label">Browse</span>
+        </label>
+        <input id="disk-file" type="file" accept=".img,.raw,application/octet-stream">
+        <div class="section-label memory-label">02 · MEMORY</div>
+        <label class="select-label" for="memory-size">Virtual machine RAM</label>
+        <select id="memory-size">
+          <option value="512" selected>512 MB · Lightweight</option>
+          <option value="1024">1024 MB · Recommended</option>
+          <option value="2048">2048 MB · More headroom</option>
+          
+        </select>
+        <button id="start-btn" class="button primary start-button" type="button">Power on Chronix</button>
+        <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
+        <p id="message" class="message" role="status">Waiting for a virtual disk image.</p>
+      </div>
+
+      <div class="setup-card info-card">
+        <div class="section-label">ABOUT THIS PREVIEW</div>
+        <h2>What’s running?</h2>
+        <ul>
+          <li><strong>CPU:</strong> emulated x86-64 PC</li>
+          <li><strong>Kernel:</strong> Debian amd64 Linux</li>
+          <li><strong>Desktop:</strong> Chronix JWM</li>
+          <li><strong>Login:</strong> automatic for the browser preview</li>
+          <li><strong>Storage:</strong> local virtual disk image</li>
+        </ul>
+        <div class="notice">
+          <strong>Preview limitations</strong>
+          <p>CPU emulation is slower than a native install. This emulator currently uses one virtual CPU, supports up to 4 GB of guest RAM, and has no 3D acceleration. The first preview has no guest internet connection yet.</p>
+        </div>
+        <div class="notice subtle">
+          <strong>Disk changes</strong>
+          <p>Changes are made to the in-memory copy of the selected disk. Use “Save disk image” before closing the tab to keep them.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="console-card">
+      <details>
+        <summary>Show virtual machine serial log</summary>
+        <pre id="serial-log" aria-live="polite">Serial output will appear here when the VM starts.</pre>
+      </details>
+    </section>
+
+    <footer class="page-footer">
+      Chronix is built on Debian. Browser emulation powered by v86_64. Third-party notices are included with the browser runtime.
+      <br><span>Initial browser VM login: chronos / chronos · Change it before using any personal data.</span>
+    </footer>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
