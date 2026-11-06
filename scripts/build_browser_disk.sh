@@ -97,10 +97,11 @@ timeout 20m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
     apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
     install -y --no-install-recommends \
     linux-image-amd64 grub-pc-bin grub2-common \
-    xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-video-vesa xserver-xorg-input-libinput \
+    xserver-xorg-core xserver-xorg-video-fbdev xserver-xorg-input-libinput \
+    x11-common \
     lightdm lightdm-gtk-greeter \
     jwm xterm pcmanfm feh lxappearance \
-    dbus-x11 sudo \
+    dbus dbus-x11 sudo \
     fonts-dejavu-core fonts-liberation2 e2fsprogs
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
@@ -115,13 +116,18 @@ chmod 0440 "$MOUNT_DIR/etc/sudoers.d/chronos"
 chroot "$MOUNT_DIR" visudo -cf /etc/sudoers
 
 install -d "$MOUNT_DIR/etc/jwm" "$MOUNT_DIR/etc/lightdm/lightdm.conf.d" \
-    "$MOUNT_DIR/etc/X11/xorg.conf.d" \
+    "$MOUNT_DIR/usr/share/xsessions" "$MOUNT_DIR/var/lib/lightdm/data" \
     "$MOUNT_DIR/usr/share/backgrounds/chronix" "$MOUNT_DIR/usr/share/pixmaps"
-cat > "$MOUNT_DIR/etc/X11/xorg.conf.d/20-chronix-vga.conf" <<'EOF'
-Section "Device"
-    Identifier "Chronix virtual VGA"
-    Driver "vesa"
-EndSection
+chroot "$MOUNT_DIR" chown lightdm:lightdm /var/lib/lightdm/data
+# Let Xorg auto-select its built-in modesetting driver for QEMU's DRM device.
+# Do not force the VESA driver: it refuses to start when DRM/framebuffer exists.
+cat > "$MOUNT_DIR/usr/share/xsessions/jwm.desktop" <<'EOF'
+[Desktop Entry]
+Name=Chronix JWM
+Comment=Chronix Standard desktop
+Exec=/etc/X11/Xsession
+Type=Application
+DesktopNames=JWM
 EOF
 install -m 0644 installer/jwmrc "$MOUNT_DIR/etc/jwm/jwmrc"
 # The browser preview has no guest browser application; the Chrome tab is the browser.
@@ -154,6 +160,36 @@ EOF
 chmod 0755 "$MOUNT_DIR/etc/skel/.xsession"
 install -m 0755 "$MOUNT_DIR/etc/skel/.xsession" "$MOUNT_DIR/home/chronos/.xsession"
 chroot "$MOUNT_DIR" chown chronos:chronos /home/chronos/.xsession
+
+echo "Checking installed desktop dependencies and required files..."
+for required in \
+    "$MOUNT_DIR/usr/bin/X" \
+    "$MOUNT_DIR/usr/sbin/lightdm" \
+    "$MOUNT_DIR/usr/bin/jwm" \
+    "$MOUNT_DIR/usr/bin/feh" \
+    "$MOUNT_DIR/usr/bin/pcmanfm" \
+    "$MOUNT_DIR/usr/bin/xterm" \
+    "$MOUNT_DIR/usr/bin/lxappearance" \
+    "$MOUNT_DIR/usr/bin/dbus-daemon" \
+    "$MOUNT_DIR/usr/bin/dbus-launch" \
+    "$MOUNT_DIR/usr/bin/sudo" \
+    "$MOUNT_DIR/etc/X11/Xsession" \
+    "$MOUNT_DIR/usr/share/xsessions/jwm.desktop" \
+    "$MOUNT_DIR/etc/lightdm/lightdm.conf.d/10-chronix-browser.conf" \
+    "$MOUNT_DIR/etc/jwm/jwmrc" \
+    "$MOUNT_DIR/home/chronos/.xsession"; do
+    if [ ! -x "$required" ] && [ ! -f "$required" ]; then
+        echo "Missing required Chronix desktop file or executable: $required" >&2
+        exit 1
+    fi
+done
+if ! find "$MOUNT_DIR/usr/lib" -name modesetting_drv.so -type f -print -quit | grep -q .; then
+    echo "Missing Xorg modesetting driver (expected from xserver-xorg-core)." >&2
+    exit 1
+fi
+chroot "$MOUNT_DIR" dpkg --audit
+chroot "$MOUNT_DIR" dpkg-query -W -f='${db:Status-Status} ${binary:Package}\n' \
+    xserver-xorg-core lightdm lightdm-gtk-greeter jwm dbus dbus-x11 x11-common
 
 cat > "$MOUNT_DIR/etc/default/grub" <<'EOF'
 GRUB_DEFAULT=0
