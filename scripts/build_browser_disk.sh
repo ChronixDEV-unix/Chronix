@@ -112,10 +112,13 @@ chroot "$MOUNT_DIR" usermod -aG sudo chronos
 install -d -m 0750 "$MOUNT_DIR/etc/sudoers.d"
 printf 'chronos ALL=(ALL:ALL) NOPASSWD: ALL\n' > "$MOUNT_DIR/etc/sudoers.d/chronos"
 chmod 0440 "$MOUNT_DIR/etc/sudoers.d/chronos"
+chroot "$MOUNT_DIR" visudo -cf /etc/sudoers
 
 install -d "$MOUNT_DIR/etc/jwm" "$MOUNT_DIR/etc/lightdm/lightdm.conf.d" \
     "$MOUNT_DIR/usr/share/backgrounds/chronix" "$MOUNT_DIR/usr/share/pixmaps"
 install -m 0644 installer/jwmrc "$MOUNT_DIR/etc/jwm/jwmrc"
+# The browser preview has no guest browser application; the Chrome tab is the browser.
+sed -i '/label="Web Browser"/d' "$MOUNT_DIR/etc/jwm/jwmrc"
 if [ -f splash.png ]; then
     install -m 0644 splash.png "$MOUNT_DIR/usr/share/pixmaps/chronix.png"
 fi
@@ -161,13 +164,14 @@ EOF
 
 cat > "$MOUNT_DIR/etc/systemd/system/chronix-browser-ready.service" <<'EOF'
 [Unit]
-Description=Chronix browser VM boot marker
+Description=Chronix browser VM graphical desktop readiness check
 Requires=display-manager.service
 After=display-manager.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0 2>/dev/null || true'
+TimeoutStartSec=190
+ExecStart=/bin/sh -c 'for i in $(seq 1 90); do for f in /proc/[0-9]*/comm; do IFS= read -r name < "$f" || continue; if [ "$name" = "jwm" ]; then echo CHRONIX_BROWSER_VM_READY > /dev/ttyS0; exit 0; fi; done; sleep 2; done; echo CHRONIX_BROWSER_VM_GUI_TIMEOUT > /dev/ttyS0; exit 1'
 
 [Install]
 WantedBy=graphical.target
