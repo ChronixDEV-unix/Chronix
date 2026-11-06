@@ -32,10 +32,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install emulator and disk-image build tools
+        timeout-minutes: 20
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential clang nasm default-jdk-headless wget python3 \
+          set -euo pipefail
+          sudo tee /etc/apt/apt.conf.d/99chronix-retries >/dev/null <<'EOF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "30";
+          Acquire::https::Timeout "30";
+          Dpkg::Use-Pty "0";
+          EOF
+          APT_OPTIONS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          echo "Updating Ubuntu package indexes..."
+          timeout 12m sudo apt-get "${APT_OPTIONS[@]}" update
+          echo "Installing Chronix build dependencies..."
+          timeout 15m sudo apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
+            build-essential clang default-jre-headless wget python3 \
             debootstrap debian-archive-keyring e2fsprogs parted dosfstools qemu-system-x86 \
             grub-pc-bin grub2-common openssl file
 
@@ -55,10 +66,15 @@ jobs:
           git -C "$RUNNER_TEMP/v86_64" checkout c394574477b57eadfc859f593b4aecb08fa37cb6
 
       - name: Build the browser emulator
+        timeout-minutes: 45
+        env:
+          CARGO_NET_RETRY: 3
+          CARGO_HTTP_TIMEOUT: 60
+          CARGO_HTTP_MULTIPLEXING: "false"
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/v86_64"
-          make WASM_OPT=false GZIP=false build/libv86.mjs build/v86.wasm
+          timeout 40m make WASM_OPT=false GZIP=false build/libv86.mjs build/v86.wasm
           test -s build/libv86.mjs
           test -s build/v86.wasm
           mkdir -p "$GITHUB_WORKSPACE/browser/site/vm/build" \
