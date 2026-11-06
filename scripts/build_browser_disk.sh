@@ -105,10 +105,9 @@ timeout 20m chroot "$MOUNT_DIR" env DEBIAN_FRONTEND=noninteractive \
     fonts-dejavu-core fonts-liberation2 e2fsprogs
 
 chroot "$MOUNT_DIR" useradd --create-home --shell /bin/bash --comment "Chronix User" chronos
-# Browser preview auto-logs into this local VM account. Do not ship a shared
-# well-known password; allow administrative commands only inside this isolated
-# preview VM without prompting for an unknown password.
-chroot "$MOUNT_DIR" passwd --lock chronos
+# Browser preview auto-logs into this local VM account.
+# Default demo credentials: chronos / chronos.
+printf 'chronos:chronos\n' | chroot "$MOUNT_DIR" chpasswd
 chroot "$MOUNT_DIR" usermod -aG sudo chronos
 install -d -m 0750 "$MOUNT_DIR/etc/sudoers.d"
 printf 'chronos ALL=(ALL:ALL) NOPASSWD: ALL\n' > "$MOUNT_DIR/etc/sudoers.d/chronos"
