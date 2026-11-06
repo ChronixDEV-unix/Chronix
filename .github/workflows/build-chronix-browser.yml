@@ -132,6 +132,10 @@ jobs:
               BOOTED=1
               break
             fi
+            if [ -f "$LOG" ] && grep -q "CHRONIX_BROWSER_VM_GUI_TIMEOUT" "$LOG"; then
+              echo "The guest reached its graphical startup timeout." >&2
+              break
+            fi
             if ! kill -0 "$QEMU_PID" 2>/dev/null; then
               break
             fi
