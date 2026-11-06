@@ -20,6 +20,7 @@ const progressBar = byId("progress-bar");
 
 let selectedFile = null;
 let diskBuffer = null;
+let builtInBaseBuffer = null;
 let emulator = null;
 let starting = false;
 let running = false;
@@ -52,6 +53,7 @@ diskInput.addEventListener("change", () => {
   selectedFile = diskInput.files && diskInput.files[0] ? diskInput.files[0] : null;
   diskBuffer = null;
   if (selectedFile) {
+    diskSizeSelect.disabled = true;
     byId("file-name").textContent = selectedFile.name;
     byId("file-size").textContent = formatBytes(selectedFile.size);
     if (selectedFile.size < 512 || selectedFile.size % 512 !== 0) {
@@ -64,6 +66,7 @@ diskInput.addEventListener("change", () => {
     }
     setMessage("Local disk image selected. It will be used instead of the built-in disk.");
   } else {
+    diskSizeSelect.disabled = false;
     byId("file-name").textContent = "Choose disk image…";
     byId("file-size").textContent = "Built-in disk loads automatically";
     setMessage("The built-in Chronix disk will be used.");
@@ -76,29 +79,24 @@ async function loadDiskImage() {
     setMessage("Reading your local disk image into browser memory…");
     return await selectedFile.arrayBuffer();
   }
-  if (diskBuffer) {
-    return diskBuffer;
-  }
-
-  setMessage("Downloading the built-in Chronix disk image…");
-  progressBar.style.width = "18%";
-  const response = await fetch("./vm/chronix-browser-amd64.diskdata", { cache: "no-store" });
-  if (!response.ok || !response.body) {
-    throw new Error("Could not download the built-in VM disk (HTTP " + response.status + ").");
-  }
-  if (typeof DecompressionStream !== "function") {
-    throw new Error("This Chrome version does not support streaming gzip decompression. Choose a local .img file instead.");
-  }
-
-  const total = Number(response.headers.get("content-length") || 0);
-  if (total) {
-    setMessage("Downloading built-in disk image (" + formatBytes(total) + ")…");
-  }
-  progressBar.style.width = "30%";
-  const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
-  const buffer = await new Response(decompressed).arrayBuffer();
-  if (!buffer.byteLength) {
-    throw new Error("The built-in disk image decompressed to an empty file.");
+  let buffer = builtInBaseBuffer;
+  if (!buffer) {
+    setMessage("Downloading the built-in Chronix disk image…");
+    progressBar.style.width = "18%";
+    const response = await fetch("./vm/chronix-browser-amd64.diskdata", { cache: "no-store" });
+    if (!response.ok || !response.body) {
+      throw new Error("Could not download the built-in VM disk (HTTP " + response.status + ").");
+    }
+    if (typeof DecompressionStream !== "function") {
+      throw new Error("This Chrome version does not support streaming gzip decompression. Choose a local .img file instead.");
+    }
+    const total = Number(response.headers.get("content-length") || 0);
+    if (total) setMessage("Downloading built-in disk image (" + formatBytes(total) + ")…");
+    progressBar.style.width = "30%";
+    const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
+    buffer = await new Response(decompressed).arrayBuffer();
+    if (!buffer.byteLength) throw new Error("The built-in disk image decompressed to an empty file.");
+    builtInBaseBuffer = buffer;
   }
   const requestedBytes = Math.round(Number(diskSizeSelect.value) * 1024 ** 3);
   if (requestedBytes < buffer.byteLength) {
