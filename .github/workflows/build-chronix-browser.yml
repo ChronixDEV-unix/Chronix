@@ -41,6 +41,13 @@ jobs:
           Acquire::https::Timeout "30";
           Dpkg::Use-Pty "0";
           EOF
+          sudo tee -a /etc/wgetrc >/dev/null <<'EOF'
+          timeout = 30
+          dns-timeout = 15
+          read-timeout = 30
+          tries = 3
+          waitretry = 5
+          EOF
           APT_OPTIONS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
           echo "Updating Ubuntu package indexes..."
           timeout 12m sudo apt-get "${APT_OPTIONS[@]}" update
@@ -62,7 +69,7 @@ jobs:
 
       - name: Check out pinned v86_64 emulator source
         run: |
-          git clone --filter=blob:none https://github.com/portlandhodl/v86_64.git "$RUNNER_TEMP/v86_64"
+          timeout 10m git clone --filter=blob:none https://github.com/portlandhodl/v86_64.git "$RUNNER_TEMP/v86_64"
           git -C "$RUNNER_TEMP/v86_64" checkout c394574477b57eadfc859f593b4aecb08fa37cb6
 
       - name: Build the browser emulator
@@ -90,6 +97,7 @@ jobs:
             > "$GITHUB_WORKSPACE/browser/site/vm/EMULATOR-REVISION.txt"
 
       - name: Build the Chronix Debian desktop disk image
+        timeout-minutes: 55
         run: |
           set -euo pipefail
           chmod +x scripts/build_browser_disk.sh
@@ -101,6 +109,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/chronix-browser-amd64.img"
 
       - name: Smoke-test the virtual disk with QEMU
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           IMAGE="$RUNNER_TEMP/chronix-browser-amd64.img"
@@ -131,11 +140,11 @@ jobs:
           sudo kill "$QEMU_PID" 2>/dev/null || true
           wait "$QEMU_PID" 2>/dev/null || true
           if [ "$BOOTED" -ne 1 ]; then
-            echo "The virtual disk did not reach graphical.target within the smoke-test window." >&2
+            echo "The virtual disk did not start the JWM desktop within the smoke-test window." >&2
             [ ! -f "$LOG" ] || tail -n 160 "$LOG"
             exit 1
           fi
-          echo "The Chronix disk booted to graphical.target under QEMU."
+          echo "The Chronix JWM desktop started under QEMU."
 
       - name: Compress virtual disk for the browser site
         run: |
