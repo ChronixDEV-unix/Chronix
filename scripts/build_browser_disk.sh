@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 DISK_IMAGE="build/chronix-browser-amd64.img"
 MOUNT_DIR="${RUNNER_TEMP:-/tmp}/chronix-browser-root"
-DISK_SIZE="2048M"
+DISK_SIZE="1536M"
 SUITE="trixie"
 MIRROR="https://deb.debian.org/debian"
 if [ "$#" -ge 1 ]; then DISK_IMAGE="$1"; fi
