@@ -8,6 +8,7 @@ const restartButton = byId("restart-btn");
 const saveButton = byId("save-disk-btn");
 const fullscreenButton = byId("fullscreen-btn");
 const memorySelect = byId("memory-size");
+const diskSizeSelect = byId("disk-size");
 const statusText = byId("status-text");
 const statusDot = byId("status-dot");
 const message = byId("message");
@@ -99,9 +100,19 @@ async function loadDiskImage() {
   if (!buffer.byteLength) {
     throw new Error("The built-in disk image decompressed to an empty file.");
   }
+  const requestedBytes = Math.round(Number(diskSizeSelect.value) * 1024 ** 3);
+  if (requestedBytes < buffer.byteLength) {
+    throw new Error("The selected virtual disk is smaller than the built-in base image.");
+  }
+  if (requestedBytes > buffer.byteLength) {
+    setMessage("Expanding the virtual disk to " + diskSizeSelect.value + " GiB in browser memory…");
+    const expanded = new ArrayBuffer(requestedBytes);
+    new Uint8Array(expanded).set(new Uint8Array(buffer));
+    buffer = expanded;
+  }
   progressBar.style.width = "38%";
-  byId("file-name").textContent = "Built-in Chronix disk";
-  byId("file-size").textContent = formatBytes(buffer.byteLength) + " loaded";
+  byId("file-name").textContent = "Built-in Chronix disk · " + diskSizeSelect.value + " GiB";
+  byId("file-size").textContent = formatBytes(buffer.byteLength) + " allocated";
   return buffer;
 }
 
@@ -120,6 +131,7 @@ async function stopMachine() {
   fullscreenButton.disabled = true;
   diskInput.disabled = false;
   memorySelect.disabled = false;
+  diskSizeSelect.disabled = false;
   setStatus("Machine stopped");
   setMessage("Machine stopped. Save the disk image before closing to keep changes.");
 }
@@ -131,6 +143,7 @@ async function startMachine() {
   startButton.disabled = true;
   diskInput.disabled = true;
   memorySelect.disabled = true;
+  diskSizeSelect.disabled = true;
   progress.hidden = false;
   progressBar.style.width = "8%";
   setStatus("Preparing virtual disk…", "busy");
@@ -176,6 +189,7 @@ async function startMachine() {
       if (emulator === failedMachine) emulator = null;
       diskInput.disabled = false;
       memorySelect.disabled = false;
+      diskSizeSelect.disabled = false;
       startButton.disabled = false;
       stopButton.disabled = true;
       restartButton.disabled = true;
@@ -214,6 +228,7 @@ async function startMachine() {
     starting = false;
     diskInput.disabled = false;
     memorySelect.disabled = false;
+    diskSizeSelect.disabled = false;
     startButton.disabled = false;
     progress.hidden = true;
     setStatus("Could not start");
