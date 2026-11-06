@@ -22,6 +22,7 @@ let diskBuffer = null;
 let emulator = null;
 let starting = false;
 let running = false;
+let hasUnsavedChanges = false;
 
 function setStatus(label, state = "off") {
   statusText.textContent = label;
@@ -52,6 +53,14 @@ diskInput.addEventListener("change", () => {
   if (selectedFile) {
     byId("file-name").textContent = selectedFile.name;
     byId("file-size").textContent = formatBytes(selectedFile.size);
+    if (selectedFile.size < 512 || selectedFile.size % 512 !== 0) {
+      selectedFile = null;
+      diskInput.value = "";
+      byId("file-name").textContent = "Choose disk image…";
+      byId("file-size").textContent = "Built-in disk loads automatically";
+      setMessage("That file does not look like a valid raw disk image (size must be a multiple of 512 bytes).", true);
+      return;
+    }
     setMessage("Local disk image selected. It will be used instead of the built-in disk.");
   } else {
     byId("file-name").textContent = "Choose disk image…";
@@ -98,12 +107,9 @@ async function loadDiskImage() {
 
 async function stopMachine() {
   if (!emulator) return;
-  try {
-    await emulator.stop();
-    await emulator.destroy();
-  } catch (error) {
-    console.warn(error);
-  }
+  const machine = emulator;
+  try { await machine.stop(); } catch (error) { console.warn("VM stop failed:", error); }
+  try { await machine.destroy(); } catch (error) { console.warn("VM cleanup failed:", error); }
   emulator = null;
   running = false;
   starting = false;
@@ -131,6 +137,7 @@ async function startMachine() {
 
   try {
     diskBuffer = await loadDiskImage();
+    hasUnsavedChanges = true;
     setStatus("Starting x86-64 PC…", "busy");
 
     emulator = new V86({
@@ -159,11 +166,23 @@ async function startMachine() {
       setTimeout(() => { progress.hidden = true; }, 700);
     });
 
-    emulator.add_listener("download-error", (event) => {
+    emulator.add_listener("download-error", async (event) => {
       const filename = event && event.file_name ? event.file_name : "a VM component";
       appendSerial("\n[Download error: " + filename + "]\n");
+      const failedMachine = emulator;
+      starting = false;
+      running = false;
+      try { if (failedMachine) await failedMachine.destroy(); } catch (cleanupError) { console.warn(cleanupError); }
+      if (emulator === failedMachine) emulator = null;
+      diskInput.disabled = false;
+      memorySelect.disabled = false;
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      restartButton.disabled = true;
+      fullscreenButton.disabled = true;
+      progress.hidden = true;
       setStatus("VM component failed to load");
-      setMessage("Could not load " + filename + ". Check the browser console for details.", true);
+      setMessage("Could not load " + filename + ". Check your connection and try again.", true);
     });
 
     emulator.add_listener("emulator-stopped", () => {
@@ -252,6 +271,7 @@ saveButton.addEventListener("click", async () => {
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     }
+    hasUnsavedChanges = false;
     setMessage("Disk image saved. Choose the saved .img file the next time you start Chronix.");
   } catch (error) {
     if (error.name === "AbortError") {
@@ -273,7 +293,7 @@ saveButton.addEventListener("click", async () => {
 });
 
 window.addEventListener("beforeunload", (event) => {
-  if (running || starting) {
+  if (running || starting || hasUnsavedChanges) {
     event.preventDefault();
     event.returnValue = "";
   }
