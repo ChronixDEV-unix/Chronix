@@ -7,8 +7,9 @@ This is a browser-based x86-64 virtual PC, not a simulated desktop. The guest bo
 - The emulator is the x86-64-capable v86_64 project, pinned in the GitHub Actions workflow.
 - The browser runtime is compiled to WebAssembly and served as static assets.
 - The guest OS is a small Debian Trixie amd64 virtual hard disk built by `scripts/build_browser_disk.sh`.
-- The browser app downloads a gzip-compressed copy of the guest disk from the same Pages site, decompresses it in Chrome, and runs it locally. Users may optionally select a local raw `.img` file instead. Guest RAM choices are powers of two because that is required by the emulator.
-- The guest filesystem is held in browser memory while running. Use the Save disk image control before leaving to keep changes.
+- The browser app downloads a gzip-compressed copy of the guest disk from the same Pages site, decompresses it in Chrome, and runs it locally. Users may optionally select a local raw `.img` file instead; the launcher checks that its size is a multiple of 512 bytes.
+- The guest filesystem is held in browser memory while running. The page warns before leaving if the VM may contain unsaved changes. Use the Save disk image control to keep them.
+- The build uses bounded APT retries/timeouts, a HTTPS Debian mirror, and explicit time limits for bootstrap and package installation. The QEMU smoke test waits for the JWM process, not just the systemd graphical target.
 
 ## Current preview limits
 
@@ -16,7 +17,7 @@ This is a browser-based x86-64 virtual PC, not a simulated desktop. The guest bo
 - Up to 4 GiB of guest RAM in the current emulator.
 - No 3D GPU acceleration; 3D rendering is software based.
 - Guest networking is not wired up in this preview.
-- The first image is a small JWM desktop. The browser tab itself provides web access; a separate browser application is intentionally omitted from the minimal guest image.
+- The first image is a small JWM desktop. The browser tab itself provides web access; a separate browser application is intentionally omitted from the minimal guest image. The browser VM automatically logs in as `chronos`; its password is locked and sudo is passwordless inside this isolated preview image. Do not expose this preview VM as a networked system.
 
 ## Build
 
